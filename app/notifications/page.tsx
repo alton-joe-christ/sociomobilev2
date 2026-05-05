@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useNotifications, type Notification } from "@/context/NotificationContext";
 import { useRouter } from "next/navigation";
 import { BellIcon, CalendarIcon, MegaphoneIcon, InfoIcon, CheckCheckIcon, ArrowLeftIcon, XIcon, CheckIcon } from "@/components/icons";

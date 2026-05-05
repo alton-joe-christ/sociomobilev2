@@ -351,18 +351,6 @@ export default function ProfilePage() {
           </div>
           <ChevronRight size={15} className="text-[var(--color-text-light)]" />
         </Link>
-        <button
-          onClick={() => router.push("/notifications")}
-          className="flex-1 card p-3 flex items-center gap-3"
-        >
-          <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
-            <Bell size={17} className="text-[var(--color-primary)]" />
-          </div>
-          <div className="text-left flex-1 min-w-0">
-            <p className="text-[13px] font-bold">Notifications</p>
-          </div>
-          <ChevronRight size={15} className="text-[var(--color-text-light)]" />
-        </button>
         {((userData?.volunteerEvents?.length ?? 0) > 0) && (
           <Link href="/volunteer" className="flex-1 card p-3 flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
