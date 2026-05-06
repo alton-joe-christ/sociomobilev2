@@ -33,6 +33,7 @@ interface NotifCtx {
   markAllRead: () => void;
   dismiss: (id: string) => void;
   dismissAll: () => void;
+  refresh: () => void;
   hasMore: boolean;
   loadMore: () => void;
   enablePushNotifications: () => Promise<void>;
