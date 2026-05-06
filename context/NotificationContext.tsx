@@ -231,7 +231,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error("Web push error", e);
     }
-  }, [oneSignal, userData?.email]);
+  }, [oneSignal, userData?.email, session?.access_token, updatePromptStatus]);
 
   // Fetch & Merge with Local States
   const fetchNotifications = useCallback(async () => {
