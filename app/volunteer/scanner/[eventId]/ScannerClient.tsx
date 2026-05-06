@@ -155,7 +155,7 @@ export default function ScannerClient() {
           </div>
         </section>
 
-        <QRScanner eventId={event.event_id} eventTitle={event.title} />
+        <QRScanner eventId={event.event_id} />
       </div>
     </div>
   );

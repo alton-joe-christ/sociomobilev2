@@ -9,7 +9,6 @@ import { PWA_API_URL } from "@/lib/apiConfig";
 
 interface QRScannerProps {
   eventId: string;
-  eventTitle: string;
   onScanSuccess?: (result: ScanPayload) => void;
 }
 
@@ -27,7 +26,7 @@ interface ScanPayload {
   message?: string;
 }
 
-export default function QRScanner({ eventId, eventTitle, onScanSuccess }: QRScannerProps) {
+export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
   const { session, userData } = useAuth();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<QrScanner | null>(null);
@@ -53,7 +52,8 @@ export default function QRScanner({ eventId, eventTitle, onScanSuccess }: QRScan
 
   const playSuccessSound = () => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+      const audioCtx = new AudioContextClass();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
 
