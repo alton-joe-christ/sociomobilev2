@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: 'SOCIO',
   webDir: 'out',
   server: {
+    url: 'https://app.withsocio.com',
     androidScheme: 'https',
     allowNavigation: [
       'app.withsocio.com',
@@ -15,6 +16,7 @@ const config: CapacitorConfig = {
       'christuniversity.in'
     ]
   },
+
 
   android: {
     allowMixedContent: true

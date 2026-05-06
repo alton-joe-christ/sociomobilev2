@@ -1,14 +1,19 @@
 ext {
     minSdkVersion = 24
-    compileSdkVersion = 36
+    compileSdkVersion = 35
     targetSdkVersion = 34
-    androidxActivityVersion = '1.8.2'
-    androidxAppCompatVersion = '1.6.1'
+
+
+    androidxActivityVersion = '1.9.3'
+    androidxAppCompatVersion = '1.7.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxCoreVersion = '1.12.0'
-    androidxFragmentVersion = '1.6.2'
+    androidxCoreSplashScreenVersion = '1.0.1'
+    androidxWebkitVersion = '1.12.1'
+    androidxBrowserVersion = '1.8.0'
+    androidxInterpolatedViewVersion = '1.0.0'
+    androidxActivityKtxVersion = '1.9.3'
+    androidxFragmentKtxVersion = '1.8.5'
     coreSplashScreenVersion = '1.0.1'
-    androidxWebkitVersion = '1.10.0'
     androidxCameraCamera2Version = '1.3.4'
     androidxCameraCoreVersion = '1.3.4'
     androidxCameraLifecycleVersion = '1.3.4'
