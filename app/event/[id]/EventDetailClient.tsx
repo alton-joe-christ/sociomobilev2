@@ -29,8 +29,10 @@ import {
   ChevronDownIcon as ChevronDown,
   ChevronUpIcon as ChevronUp,
   AwardIcon as Award,
+  ShareIcon,
 } from "@/components/icons";
 import { Button } from "@/components/Button";
+import { shareEvent } from "@/lib/share";
 
 function parseJsonField<T>(raw: any): T[] {
   if (!raw) return [];
@@ -238,6 +240,19 @@ export default function EventDetailClient({ eventId }: { eventId: string }) {
             </div>
           )}
         </div>
+
+        {/* Share Action */}
+        <button
+          onClick={() => void shareEvent({
+            title: event.title,
+            text: `Check out this event: ${event.title}`,
+            url: `${window.location.origin}/event/${event.event_id}`,
+          })}
+          className="absolute top-[calc(var(--safe-top)+56px)] right-4 z-10 w-10 h-10 rounded-full bg-black/30 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform"
+          aria-label="Share Event"
+        >
+          <ShareIcon size={20} />
+        </button>
         {/* title */}
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-5 pt-10 z-10">
           {event.organizing_dept && (

@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MapPinIcon, ClockIcon, UsersIcon, TrendingUpIcon } from "@/components/icons";
+import { MapPinIcon, ClockIcon, UsersIcon, TrendingUpIcon, ShareIcon } from "@/components/icons";
 import type { FetchedEvent } from "@/context/EventContext";
 import { formatDateShort, formatTime, getDaysUntil, isDeadlinePassed } from "@/lib/dateUtils";
+import { shareEvent } from "@/lib/share";
 
 export default function EventCard({
   event,
@@ -88,7 +89,7 @@ export default function EventCard({
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
 
-        {/* Top Left Badges */}
+        {/* Top Badges */}
         <div className="absolute top-3 left-3 flex flex-col items-start gap-2 z-[1]">
           {isTrending && (
             <div className="bg-black/50 backdrop-blur-md rounded-full px-2 py-1 flex items-center gap-1 shadow-sm border border-white/10">
@@ -109,6 +110,23 @@ export default function EventCard({
             )
           )}
         </div>
+
+        {/* Share Button */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void shareEvent({
+              title: event.title,
+              text: `Check out this event: ${event.title}`,
+              url: `${window.location.origin}/event/${event.event_id}`,
+            });
+          }}
+          className="absolute top-3 right-3 z-[1] w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-[var(--color-primary)] shadow-sm border border-white/20 active:scale-90 transition-transform"
+          aria-label="Share Event"
+        >
+          <ShareIcon size={16} />
+        </button>
       </div>
 
       {/* Body */}

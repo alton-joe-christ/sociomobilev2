@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 // Removed top-level Capacitor imports to prevent SSR module resolution errors
 import DesktopGate from "@/components/DesktopGate";
 import OrientationGate from "@/components/OrientationGate";
@@ -20,6 +20,7 @@ const NO_TOP_BAR = ["/auth/callback", "/offline", "/notifications"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const hideBottom = NO_BOTTOM_NAV.some((p) => pathname.startsWith(p));
   const hideTop = NO_TOP_BAR.some((p) => pathname.startsWith(p));
   const { userData, session, needsCampus, refreshUserData } = useAuth();
@@ -28,7 +29,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setCampusDismissed(isCampusDismissedRecently());
     
-    // Safely lock orientation only on client-side native platforms
     const lockOrientation = async () => {
       try {
         const { Capacitor } = await import("@capacitor/core");
@@ -42,7 +42,47 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
 
     lockOrientation();
-  }, []);
+
+    // Deep Linking: Handle incoming URLs
+    const setupDeepLinks = async () => {
+      try {
+        const { Capacitor } = await import("@capacitor/core");
+        if (!Capacitor.isNativePlatform()) return;
+
+        const { App } = await import("@capacitor/app");
+        
+        // Handle links when app is in background or already open
+        await App.addListener('appUrlOpen', (data) => {
+          const url = new URL(data.url);
+          const path = url.pathname;
+          
+          if (path.startsWith('/event/')) {
+            const eventId = path.split('/event/')[1];
+            if (eventId) {
+              router.push(`/event/${eventId}`);
+            }
+          }
+        });
+
+        // Handle cold start (app opened via link)
+        const launchUrl = await App.getLaunchUrl();
+        if (launchUrl) {
+          const url = new URL(launchUrl.url);
+          const path = url.pathname;
+          if (path.startsWith('/event/')) {
+            const eventId = path.split('/event/')[1];
+            if (eventId) {
+              router.push(`/event/${eventId}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Deep link setup failed:", err);
+      }
+    };
+
+    setupDeepLinks();
+  }, [router]);
 
   const handleCampusComplete = (campus: string) => {
     if (campus) refreshUserData();

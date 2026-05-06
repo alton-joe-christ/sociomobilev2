@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /* Fetch profile from backend */
-  const fetchUserData = useCallback(async (email: string, accessToken?: string, retryCount = 0): Promise<UserData | null> => {
+  const fetchUserData = useCallback(async function fetchUserDataInternal(email: string, accessToken?: string, retryCount = 0): Promise<UserData | null> {
     console.log(`fetchUserData called for ${email}, accessToken present: ${!!accessToken}, attempt: ${retryCount + 1}`);
     try {
       const headers: Record<string, string> = {};
@@ -349,11 +349,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (retryCount < 2) {
       console.log(`Retrying fetchUserData (${retryCount + 1})...`);
       await new Promise(r => setTimeout(r, 2000));
-      return fetchUserData(email, accessToken, retryCount + 1);
+      return fetchUserDataInternal(email, accessToken, retryCount + 1);
     }
 
     return null;
-  }, [PWA_API_URL]); // Added PWA_API_URL to dependencies if not there
+  }, [PWA_API_URL]);
 
   const maybeShowOutsiderWelcome = useCallback((fetchedUser: UserData | null, authUserId?: string) => {
     if (
