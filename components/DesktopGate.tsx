@@ -23,13 +23,13 @@ export default function DesktopGate() {
       </p>
 
       <a
-        href="https://socio.christuniversity.in"
+        href="https://app.withsocio.com"
         target="_blank"
         rel="noopener noreferrer"
         className="btn btn-accent mt-2 animate-fade-up"
         style={{ animationDelay: "160ms" }}
       >
-        socio.christuniversity.in <ArrowRightIcon size={16} />
+        app.withsocio.com <ArrowRightIcon size={16} />
       </a>
 
       <div
