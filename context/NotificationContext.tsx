@@ -148,7 +148,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           console.error("OS init error", e);
         }
       }
-      initOneSignal();
+      // initOneSignal(); // Disabled again - google-services.json missing, causing crash
 
     }
   }, [router]);
