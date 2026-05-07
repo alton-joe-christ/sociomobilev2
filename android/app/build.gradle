@@ -20,6 +20,10 @@ android {
             onesignal_app_id: "291a29a9-bfe3-4983-a8ee-615ef55676ee",
             onesignal_google_project_number: "REMOTE"
         ]
+        manifestPlaceholders = [
+            onesignal_app_id: "291a29a9-bfe3-4983-a8ee-615ef55676ee",
+            onesignal_google_project_number: "REMOTE"
+        ]
     }
 
 
