@@ -480,10 +480,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined" || !Capacitor.isNativePlatform()) return;
 
-    const listener = CapacitorApp.addListener("appUrlOpen", async (event) => {
-      console.log("👉 [DeepLink] Incoming URL:", event.url);
+    const handleDeepLink = async (incomingUrl: string) => {
+      console.log("👉 [DeepLink] Incoming URL:", incomingUrl);
       try {
-        const url = new URL(event.url);
+        const url = new URL(incomingUrl);
         console.log("👉 [DeepLink] Parsed URL:", {
           href: url.href,
           protocol: url.protocol,
@@ -558,7 +558,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("❌ [DeepLink] Critical handling error:", err);
       }
+    };
+
+    // Handle deep links while app is already running/in background.
+    const listener = CapacitorApp.addListener("appUrlOpen", async (event) => {
+      await handleDeepLink(event.url);
     });
+
+    // Handle cold-start deep link when app was fully closed.
+    void CapacitorApp.getLaunchUrl()
+      .then(async ({ url }) => {
+        if (!url) return;
+        console.log("👉 [DeepLink] Launch URL detected:", url);
+        await handleDeepLink(url);
+      })
+      .catch((err) => {
+        console.warn("[DeepLink] getLaunchUrl failed:", err);
+      });
 
 
     return () => {
