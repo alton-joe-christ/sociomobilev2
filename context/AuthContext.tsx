@@ -567,7 +567,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Handle cold-start deep link when app was fully closed.
     void CapacitorApp.getLaunchUrl()
-      .then(async ({ url }) => {
+      .then(async (launchUrl) => {
+        const url = launchUrl?.url;
         if (!url) return;
         console.log("👉 [DeepLink] Launch URL detected:", url);
         await handleDeepLink(url);
