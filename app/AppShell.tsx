@@ -8,12 +8,15 @@ import OrientationGate from "@/components/OrientationGate";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import InstallPrompt from "@/components/InstallPrompt";
-import SmartNotificationPrompt from "@/components/SmartNotificationPrompt";
-import ChatbotFab from "@/components/ChatbotFab";
-import CampusSelector, { isCampusDismissedRecently } from "@/components/CampusSelector";
 import PageTransition from "@/components/PageTransition";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
-import ShakeToScanListener from "@/components/ShakeToScanListener";
+
+// Lazy load heavy/secondary components
+const ChatbotFab = dynamic(() => import("@/components/ChatbotFab"), { ssr: false });
+const SmartNotificationPrompt = dynamic(() => import("@/components/SmartNotificationPrompt"), { ssr: false });
+const CampusSelector = dynamic(() => import("@/components/CampusSelector"), { ssr: false });
+const ShakeToScanListener = dynamic(() => import("@/components/ShakeToScanListener"), { ssr: false });
 
 const NO_BOTTOM_NAV = ["/auth", "/auth/callback", "/offline"];
 const NO_TOP_BAR = ["/auth/callback", "/offline", "/notifications"];
@@ -28,14 +31,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [isNative, setIsNative] = useState(false);
 
   useEffect(() => {
+    // Check if dismissed recently (requires window/client check)
+    const { isCampusDismissedRecently } = require("@/components/CampusSelector");
+    setCampusDismissed(isCampusDismissedRecently());
+  }, []);
+
+  useEffect(() => {
     import("@capacitor/core").then(({ Capacitor }) => {
       setIsNative(Capacitor.isNativePlatform());
     });
   }, []);
 
   useEffect(() => {
-    setCampusDismissed(isCampusDismissedRecently());
-    
     const lockOrientation = async () => {
       try {
         const { Capacitor } = await import("@capacitor/core");

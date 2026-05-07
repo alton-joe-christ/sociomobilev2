@@ -6,7 +6,8 @@ import Image from "next/image";
 import { useEvents } from "@/context/EventContext";
 import { useAuth } from "@/context/AuthContext";
 import EventCard from "@/components/EventCard";
-import Skeleton from "@/components/Skeleton";
+import EventCardSkeleton from "@/components/skeletons/EventCardSkeleton";
+import FestCardSkeleton from "@/components/skeletons/FestCardSkeleton";
 import EmptyState from "@/components/EmptyState";
 import { SearchIcon, XIcon, ArrowRightIcon, CalendarIcon, MapPinIcon, SparklesIcon, UsersIcon, FlameIcon, TrendingUpIcon, BuildingIcon } from "@/components/icons";
 import { FilterChip } from "@/components/FilterChip";
@@ -51,6 +52,11 @@ export default function DiscoverPage() {
   const [fests, setFests] = useState<Fest[]>([]);
   const [festsLoading, setFestsLoading] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   /* Fetch actual fests from API */
   useEffect(() => {
@@ -316,10 +322,13 @@ export default function DiscoverPage() {
         <div className="shrink-0 w-4 snap-end" aria-hidden />
       </div>
 
-      {isLoading ? (
-        <div className="px-5 space-y-4">
-          <Skeleton className="h-52 w-full rounded-[var(--radius-xl)]" count={1} />
-          <Skeleton className="h-36 w-full rounded-[var(--radius-lg)]" count={2} />
+      {!isHydrated || isLoading ? (
+        <div className="px-5 space-y-6 pt-4">
+          <EventCardSkeleton featured />
+          <div className="space-y-4">
+            <div className="skeleton h-6 w-32 rounded mb-4" />
+            <EventCardSkeleton count={2} />
+          </div>
         </div>
       ) : (
         <>

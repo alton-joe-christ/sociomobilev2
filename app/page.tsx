@@ -2,11 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useEvents, type FetchedEvent } from "@/context/EventContext";
 import { CalendarDaysIcon, BellIcon, CompassIcon, ArrowRightIcon, MapPinIcon, Clock3Icon, FlameIcon, TicketIcon, QrCodeIcon, BuildingIcon } from "@/components/icons";
 import { formatDateShort, formatTime, isDeadlinePassed } from "@/lib/dateUtils";
 import { getActiveVolunteerEvents } from "@/lib/volunteerAccess";
+import EventCardSkeleton from "@/components/skeletons/EventCardSkeleton";
+import FestCardSkeleton from "@/components/skeletons/FestCardSkeleton";
 
 function getEventDateValue(event: FetchedEvent) {
   return new Date(event.event_date || 0).getTime();
@@ -144,8 +147,15 @@ function UpcomingEventItem({ event }: { event: FetchedEvent }) {
 }
 
 export default function HomePage() {
-  const { userData } = useAuth();
-  const { allEvents } = useEvents();
+  const { userData, isLoading: authLoading } = useAuth();
+  const { allEvents, isLoading: eventsLoading } = useEvents();
+  const [isHydrated, setIsHydrated] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  const isDataLoading = !isHydrated || eventsLoading;
 
   const activeEvents = [...allEvents]
     .filter((event) => {
@@ -206,7 +216,11 @@ export default function HomePage() {
         </section>
 
 
-        {featuredEvent && (
+        {!isHydrated || !featuredEvent ? (
+          <section>
+            <EventCardSkeleton featured />
+          </section>
+        ) : (
           <section>
             <Link
               href={`/event/${featuredEvent.event_id}`}
@@ -280,7 +294,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {upcomingEvents.length > 0 && (
+        {!isHydrated || upcomingEvents.length > 0 ? (
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[18px] font-extrabold tracking-[-0.02em] text-[var(--color-text)] pl-3 border-l-[3px] border-[var(--color-accent)]">
@@ -291,14 +305,18 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="space-y-3">
-              {upcomingEvents.map((event) => (
-                <UpcomingEventItem key={event.event_id} event={event} />
-              ))}
+              {!isHydrated ? (
+                <EventCardSkeleton count={3} />
+              ) : (
+                upcomingEvents.map((event) => (
+                  <UpcomingEventItem key={event.event_id} event={event} />
+                ))
+              )}
             </div>
           </section>
-        )}
+        ) : null}
 
-        {festSpotlight && (
+        {!isHydrated || festSpotlight ? (
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[18px] font-extrabold tracking-[-0.02em] text-[var(--color-text)] pl-3 border-l-[3px] border-[var(--color-accent)]">
@@ -309,33 +327,37 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <Link
-              href={festSpotlight.fest ? "/fests" : `/event/${festSpotlight.event_id}`}
-              className="group relative block overflow-hidden rounded-[22px] border border-white bg-white/85 shadow-[0_8px_24px_rgba(1,31,123,0.08)] backdrop-blur-sm"
-            >
-              <div className="relative h-40">
-                <Image
-                  src={getEventImage(festSpotlight)}
-                  alt={festSpotlight.fest || festSpotlight.title}
-                  fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-105"
-                  sizes="(max-width: 480px) 100vw, 420px"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-4">
-                  <h3 className="text-[20px] font-extrabold leading-tight text-white">
-                    {festSpotlight.fest || festSpotlight.title}
-                  </h3>
-                  <p className="mt-1 text-[12px] text-white/80">
-                    {festSpotlight.organizing_dept || "Campus-wide spotlight"}
-                  </p>
+            {!isHydrated ? (
+              <FestCardSkeleton />
+            ) : (
+              <Link
+                href={festSpotlight!.fest ? "/fests" : `/event/${festSpotlight!.event_id}`}
+                className="group relative block overflow-hidden rounded-[22px] border border-white bg-white/85 shadow-[0_8px_24px_rgba(1,31,123,0.08)] backdrop-blur-sm"
+              >
+                <div className="relative h-40">
+                  <Image
+                    src={getEventImage(festSpotlight!)}
+                    alt={festSpotlight!.fest || festSpotlight!.title}
+                    fill
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    sizes="(max-width: 480px) 100vw, 420px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-4">
+                    <h3 className="text-[20px] font-extrabold leading-tight text-white">
+                      {festSpotlight!.fest || festSpotlight!.title}
+                    </h3>
+                    <p className="mt-1 text-[12px] text-white/80">
+                      {festSpotlight!.organizing_dept || "Campus-wide spotlight"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            )}
           </section>
-        )}
+        ) : null}
 
-        {allEvents.length === 0 && (
+        {isHydrated && allEvents.length === 0 && (
           <section className="rounded-[22px] border border-white bg-white/85 px-5 py-8 text-center shadow-[0_8px_24px_rgba(1,31,123,0.06)]">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
               <CalendarDaysIcon className="h-7 w-7 text-[var(--color-primary)]" />

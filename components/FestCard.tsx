@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import ShimmerImage from "./ShimmerImage";
 import Link from "next/link";
 import { CalendarIcon, UsersIcon, TrendingUpIcon, ShareIcon } from "@/components/icons";
 import type { Fest } from "@/context/EventContext";
@@ -57,7 +57,7 @@ export default function FestCard({ fest, isTrending }: { fest: Fest; isTrending?
       href={href}
       className="card-elevated relative block w-full h-[220px] group cursor-pointer border border-white/40"
     >
-      <Image
+      <ShimmerImage
         src={
           img ||
           [

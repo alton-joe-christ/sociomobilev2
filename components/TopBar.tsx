@@ -42,19 +42,21 @@ export default function TopBar() {
           </button>
         ) : userData ? (
           <Link href="/profile" className="shrink-0">
-            {userData.avatar_url ? (
-              <Image
-                src={userData.avatar_url}
-                alt={userData.name}
-                width={34}
-                height={34}
-                className="rounded-full object-cover shadow-[0_4px_14px_rgba(0,0,0,0.4)] ring-2 ring-[#1a3a7a]"
-              />
-            ) : (
-              <div className="w-[34px] h-[34px] rounded-full bg-white/20 text-white flex items-center justify-center text-xs font-bold shadow-[0_4px_14px_rgba(0,0,0,0.2)] ring-2 ring-[#1a3a7a]">
-                {userData.name?.[0]?.toUpperCase() || "U"}
-              </div>
-            )}
+            <div className="w-[34px] h-[34px] rounded-full overflow-hidden ring-2 ring-[#1a3a7a] shadow-[0_4px_14px_rgba(0,0,0,0.3)] bg-white/10 flex items-center justify-center">
+              {userData.avatar_url ? (
+                <Image
+                  src={userData.avatar_url}
+                  alt={userData.name || "User"}
+                  width={34}
+                  height={34}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-[13px] font-black text-white drop-shadow-sm">
+                  {userData.name?.[0]?.toUpperCase() || "U"}
+                </span>
+              )}
+            </div>
           </Link>
         ) : (
           <Link href="/auth" className="flex items-center justify-center shrink-0 text-[var(--color-text-muted)] p-1">

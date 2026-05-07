@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import ShimmerImage from "./ShimmerImage";
 import Link from "next/link";
 import { MapPinIcon, ClockIcon, UsersIcon, TrendingUpIcon, ShareIcon } from "@/components/icons";
 import type { FetchedEvent } from "@/context/EventContext";
@@ -33,7 +33,7 @@ export default function EventCard({
       <Link href={`/event/${event.event_id}`} className="flex gap-3 items-center p-3 bg-white rounded-[var(--radius)] shadow-[var(--shadow-xs)] animate-fade-up group">
         <div className="relative w-16 h-16 rounded-[var(--radius-sm)] overflow-hidden shrink-0 bg-gray-100">
           {(event.banner_url || event.event_image_url) ? (
-            <Image src={(event.banner_url || event.event_image_url)!} alt={event.title} fill className="object-cover" sizes="64px" />
+            <ShimmerImage src={(event.banner_url || event.event_image_url)!} alt={event.title} fill className="object-cover" sizes="64px" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-[var(--color-primary)] to-[#1a6bdb] flex items-center justify-center">
               <span className="text-white font-bold text-sm">{event.title.charAt(0)}</span>
@@ -72,7 +72,7 @@ export default function EventCard({
       {/* Banner */}
       <div className={`relative ${featured ? "aspect-[16/10]" : "aspect-[16/9]"} bg-gray-100 overflow-hidden`}>
         {event.event_image_url || event.banner_url ? (
-          <Image
+          <ShimmerImage
             src={(event.banner_url || event.event_image_url)!}
             alt={event.title}
             fill
