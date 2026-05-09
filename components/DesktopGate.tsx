@@ -1,12 +1,19 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { MonitorIcon, ArrowRightIcon, SmartphoneIcon } from "@/components/icons";
+
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || "https://socio.christuniversity.in";
 
 /**
  * Full-screen overlay shown on viewports ≥ 768 px.
  * CSS in globals.css hides everything behind it automatically.
+ * Redirects desktop users back to the main web app, preserving the current path.
  */
 export default function DesktopGate() {
+  const pathname = usePathname();
+  const webUrl = `${WEB_URL}${pathname}`;
+
   return (
     <div className="desktop-gate" aria-label="Desktop redirect notice">
       <div className="animate-bounce-in">
@@ -23,13 +30,11 @@ export default function DesktopGate() {
       </p>
 
       <a
-        href="https://app.withsocio.com"
-        target="_blank"
-        rel="noopener noreferrer"
+        href={webUrl}
         className="btn btn-accent mt-2 animate-fade-up"
         style={{ animationDelay: "160ms" }}
       >
-        app.withsocio.com <ArrowRightIcon size={16} />
+        Open on Desktop <ArrowRightIcon size={16} />
       </a>
 
       <div

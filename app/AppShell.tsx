@@ -72,15 +72,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         // Handle links when app is in background or already open
         deepLinkListener = await App.addListener('appUrlOpen', (data) => {
           console.log("👉 [AppShell] Deep Link Hit:", data.url);
-          const url = new URL(data.url);
-          const path = url.pathname;
-          
-          if (path.startsWith('/event/')) {
-            const eventId = path.split('/event/')[1];
-            if (eventId) {
-              console.log("🚀 [AppShell] Navigating to event:", eventId);
-              router.push(`/event/${eventId}`);
+          try {
+            const url = new URL(data.url);
+            const path = url.pathname + url.search;
+            if (path && path !== '/') {
+              console.log("🚀 [AppShell] Navigating to:", path);
+              router.push(path);
             }
+          } catch (e) {
+            console.warn("[AppShell] Invalid deep link URL:", data.url);
           }
         });
       } catch (err) {
