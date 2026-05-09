@@ -1,5 +1,5 @@
 import { PWA_API_URL } from "@/lib/apiConfig";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
 
 type ApiFetchOptions = RequestInit & {
   requireAuth?: boolean;
@@ -140,16 +140,52 @@ async function fetchWithTimeout(
   }
 
   try {
-    try {
-      return await fetch(url, {
-        ...init,
-        signal: timeoutController.signal,
-      });
-    } catch (error) {
-      if (timedOut && error instanceof Error && error.name === "AbortError") {
-        throw new TimeoutError(`Request timed out after ${timeoutMs}ms`);
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const headers: Record<string, string> = {};
+        if (init.headers) {
+           new Headers(init.headers).forEach((value, key) => {
+              headers[key.toLowerCase()] = value;
+           });
+        }
+        
+        let dataToSent = init.body;
+        if (typeof dataToSent === "string" && headers["content-type"]?.includes("application/json")) {
+            try { dataToSent = JSON.parse(dataToSent); } catch { /* ignore */ }
+        }
+
+        const options = {
+          url,
+          headers,
+          method: init.method || "GET",
+          data: dataToSent,
+          connectTimeout: timeoutMs,
+          readTimeout: timeoutMs,
+        };
+
+        const result = await CapacitorHttp.request(options);
+        const bodyText = typeof result.data === 'string' ? result.data : JSON.stringify(result.data);
+        
+        return new Response(bodyText, {
+            status: result.status,
+            headers: result.headers,
+        });
+      } catch (error) {
+          if (timedOut) throw new TimeoutError(`Request timed out after ${timeoutMs}ms`);
+          throw error;
       }
-      throw error;
+    } else {
+      try {
+        return await fetch(url, {
+          ...init,
+          signal: timeoutController.signal,
+        });
+      } catch (error) {
+        if (timedOut && error instanceof Error && error.name === "AbortError") {
+          throw new TimeoutError(`Request timed out after ${timeoutMs}ms`);
+        }
+        throw error;
+      }
     }
   } finally {
     clearTimeout(timeoutId);

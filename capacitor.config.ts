@@ -6,8 +6,13 @@ const config: CapacitorConfig = {
   webDir: 'out',
   android: {
     allowMixedContent: false
-  }
-
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
 };
 
 export default config;
+
