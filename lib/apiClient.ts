@@ -32,6 +32,13 @@ export class ApiError extends Error {
   }
 }
 
+class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TimeoutError";
+  }
+}
+
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
@@ -72,9 +79,12 @@ function parseBody(bodyText: string, contentType: string | null): unknown {
 
 function isNetworkFailure(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
-  if (error.name === "AbortError") return true;
   const message = (error.message || "").toLowerCase();
-  return message.includes("failed to fetch") || message.includes("network");
+  return (
+    error.name === "TimeoutError" ||
+    message.includes("failed to fetch") ||
+    message.includes("network")
+  );
 }
 
 function shouldSetJsonContentType(body: BodyInit | null | undefined): boolean {
@@ -111,7 +121,11 @@ async function fetchWithTimeout(
   timeoutMs: number
 ): Promise<Response> {
   const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    timeoutController.abort();
+  }, timeoutMs);
 
   const externalSignal = init.signal;
   let abortListener: (() => void) | null = null;
@@ -126,10 +140,17 @@ async function fetchWithTimeout(
   }
 
   try {
-    return await fetch(url, {
-      ...init,
-      signal: timeoutController.signal,
-    });
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: timeoutController.signal,
+      });
+    } catch (error) {
+      if (timedOut && error instanceof Error && error.name === "AbortError") {
+        throw new TimeoutError(`Request timed out after ${timeoutMs}ms`);
+      }
+      throw error;
+    }
   } finally {
     clearTimeout(timeoutId);
     if (externalSignal && abortListener) {
@@ -245,9 +266,7 @@ export async function apiFetch<T = any>(
         continue;
       }
 
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new Error(`Request timed out after ${timeoutMs}ms`);
-      }
+      if (error instanceof Error && error.name === "TimeoutError") throw error;
       throw error;
     }
   }
