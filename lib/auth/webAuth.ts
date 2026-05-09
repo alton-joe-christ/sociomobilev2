@@ -10,8 +10,8 @@ export async function signInWithGoogleWeb() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      // Redirect back to the Next.js auth callback route
-      redirectTo: `${window.location.origin}/auth/callback`,
+      // Redirect to the backend callback which handles the PKCE exchange for Web
+      redirectTo: "https://socio2026v2server.vercel.app/api/auth/callback",
     },
   });
 

@@ -514,9 +514,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const token = url.searchParams.get("token") || url.searchParams.get("access_token");
-        const refreshToken = url.searchParams.get("refresh_token") || url.searchParams.get("refreshToken") || url.searchParams.get("refresh");
-        const error = url.searchParams.get("error");
+        // Parse tokens from hash fragment (#) - used by Supabase Implicit Flow
+        // Example: socio://auth/callback#access_token=...&refresh_token=...
+        const hashParams = new URLSearchParams(url.hash.substring(1));
+        
+        const token = hashParams.get("access_token") || url.searchParams.get("token") || url.searchParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token") || url.searchParams.get("refresh_token") || url.searchParams.get("refreshToken") || url.searchParams.get("refresh");
+        const error = url.searchParams.get("error") || hashParams.get("error");
 
         if (error) {
           console.error("❌ [DeepLink] Auth error from backend:", error);

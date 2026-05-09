@@ -26,12 +26,33 @@ function AuthCallbackContent() {
     }
 
     const code = searchParams.get("code");
+    const token = searchParams.get("token") || searchParams.get("access_token");
+    const refreshToken = searchParams.get("refresh_token");
     const errorParam = searchParams.get("error");
     const errorDescription = searchParams.get("error_description");
 
     if (errorParam) {
       setError(errorDescription || "Authentication failed");
       setTimeout(() => router.replace("/auth"), 2000);
+      return;
+    }
+
+    if (token && refreshToken) {
+      const processTokens = async () => {
+        const { error: sessionErr } = await supabase.auth.setSession({
+          access_token: token,
+          refresh_token: refreshToken,
+        });
+        if (sessionErr) {
+          setError(sessionErr.message);
+          setTimeout(() => router.replace("/auth"), 2000);
+        } else {
+          await refreshUserData();
+          const next = searchParams.get("next") || "/";
+          router.replace(next);
+        }
+      };
+      processTokens();
       return;
     }
 

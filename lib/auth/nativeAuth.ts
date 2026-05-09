@@ -11,8 +11,8 @@ import { PWA_API_URL } from "@/lib/apiConfig";
  * 3. App receives tokens via socio:// scheme.
  */
 export async function signInWithGoogleNative() {
-  // The backend callback handles the code exchange and redirects back to the app via deep link
-  const redirectUrl = `${PWA_API_URL}/auth/callback`;
+  // Use direct socio:// deep link for native auth to bypass the backend PKCE exchange
+  const redirectUrl = "socio://auth/callback";
   
   console.log(`[NativeAuth] Initiating OAuth flow. redirectUrl: ${redirectUrl}`);
 
