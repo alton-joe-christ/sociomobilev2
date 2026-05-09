@@ -88,18 +88,14 @@ export default function RegisterClient({ eventId }: { eventId: string }) {
     if (registerNumber) params.set("registerNumber", String(registerNumber));
     if (userData.email) params.set("email", userData.email);
 
-    fetch(`${PWA_API_URL}/registrations?${params.toString()}`)
-      .then((r) => (r.ok ? r.json() : []))
+    apiRequest<any>(`/registrations?${params.toString()}`)
+      .then((r) => (Array.isArray(r) ? r : (r as any)?.registrations ?? (r as any)?.events ?? []))
       .then((data) => {
-        const registrations = Array.isArray(data)
-          ? data
-          : data?.registrations ?? data?.events ?? [];
-
-        const ids = (Array.isArray(registrations) ? registrations : [])
+        const registrations = Array.isArray(data) ? data : [];
+        const ids = registrations
           .map((item: any) => item?.event_id || item?.id || item?.event?.event_id || item?.event?.id)
           .filter(Boolean)
           .map((id: any) => String(id));
-
         setAlreadyRegistered(ids.includes(String(event.event_id)));
       })
       .catch(() => {});
@@ -158,7 +154,7 @@ export default function RegisterClient({ eventId }: { eventId: string }) {
 
     setSubmitting(true);
     try {
-      const res = await apiRequest(`/register`, {
+      await apiRequest<any>(`/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -171,18 +167,13 @@ export default function RegisterClient({ eventId }: { eventId: string }) {
           })),
         }),
       });
-      if (res.ok) {
-        setSuccess(true);
+      setSuccess(true);
+    } catch (err: any) {
+      if (err.message?.includes("409") || err.code === "ALREADY_REGISTERED") {
+        setRegError("You are already registered for this event.");
       } else {
-        const d = await res.json();
-        if (res.status === 409 || d.code === "ALREADY_REGISTERED") {
-          setRegError("You are already registered for this event.");
-          return;
-        }
-        setRegError(d.error || d.message || "Registration failed.");
+        setRegError(err.message || "Registration failed.");
       }
-    } catch {
-      setRegError("Network error. Please try again.");
     } finally {
       setSubmitting(false);
     }
