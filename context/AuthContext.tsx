@@ -264,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[API] response for /users/me (${email}), platform: ${platform}`);
       clearTimeout(timeoutId);
 
-      const data = res;
+      const data = res as any;
       console.log(`🔍 [AuthDebug] fetchUserData: SUCCESS. Data keys: ${Object.keys(data).join(", ")}`);
       const fetchedUser = data.user ?? data;
       fetchedUser.roles = fetchedUser.roles ?? data.roles ?? {};
