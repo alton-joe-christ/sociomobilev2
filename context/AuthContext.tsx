@@ -286,11 +286,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (volEvents === undefined && accessToken) {
         try {
           console.log(`[API] endpoint: /volunteer/events, token exists: ${!!accessToken}, platform: ${Capacitor.getPlatform()}`);
-          const volRes = await apiRequest(`/volunteer/events`, {
+          const volRes = (await apiRequest(`/volunteer/events`, {
             headers: { Authorization: `Bearer ${accessToken}` },
             cache: "no-store",
             signal: AbortSignal.timeout(8000)
-          });
+          })) as any;
           volEvents = volRes.events || [];
         } catch (err) {
           console.error("Failed to fetch volunteer events during /me fetch", err);
