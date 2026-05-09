@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 const BACK_PAGES = ["/event/", "/fest/", "/notifications", "/club/"];
 
 export default function TopBar() {
-  const { user, userData, isAuthenticated } = useAuth();
+  const { user, userData, isAuthenticated, isAuthReady } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isHydrated, setIsHydrated] = useState(false);

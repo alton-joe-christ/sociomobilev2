@@ -142,6 +142,7 @@ const AuthContext = createContext<AuthCtx>({
   user: null,
   userData: null,
   isLoading: true,
+  isAuthReady: false,
   isAuthenticated: false,
   needsCampus: false,
   signInWithGoogle: async () => {},
@@ -711,13 +712,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log("🔍 [AuthDebug] Bootstrap: Starting sequence...");
       try {
-        const cachedUser = restoreUserDataFromLS();
-        if (cachedUser && mounted) {
-          setUserData({
-            ...cachedUser,
-            volunteerEvents: Array.isArray(cachedUser.volunteerEvents) ? cachedUser.volunteerEvents : [],
-          });
-        }
+        setAuthTimings(prev => ({ ...prev, start: Date.now() }));
 
         // 1. Try Supabase cookie-based session first
         const { data: { session: s } } = await supabase.auth.getSession();
@@ -725,16 +720,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (s?.user?.email) {
           if (mounted) {
+            setAuthTimings(prev => ({ ...prev, sessionReady: Date.now() }));
             setSession(s);
             setUser(s.user);
             persistSessionToLS(s);
             scheduleTokenRefresh(s);
           }
-          try {
-            await ensureUser(s.user);
-          } catch (err) {
-            console.error("[Auth] ensureUser failed during bootstrap:", err);
-          }
+          await ensureUser(s.user);
           if (mounted) {
             setIsLoading(false);
             setIsHydrated(true);
@@ -742,50 +734,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 2. Cookie session missing — try localStorage backup (PWA standalone)
+        // 2. Cookie session missing — try localStorage backup
         const lsSession = restoreSessionFromLS();
-        if (lsSession?.refresh_token) {
-          console.log("🔍 [AuthDebug] Attempting restoration from LocalStorage backup...");
-          const { data: refreshed } = await supabase.auth.setSession({
-            access_token: lsSession.access_token,
-            refresh_token: lsSession.refresh_token,
-          });
-
-          if (refreshed.session?.user?.email && mounted) {
-            setSession(refreshed.session);
-            setUser(refreshed.session.user);
-            persistSessionToLS(refreshed.session);
-            scheduleTokenRefresh(refreshed.session);
-            void ensureUser(refreshed.session.user);
-            if (mounted) {
-              setIsLoading(false);
-              setIsHydrated(true);
-            }
         const lsUser = restoreUserDataFromLS();
-        if (lsSession && lsSession.user) {
-          setAuthTimings(prev => ({ ...prev, start: Date.now(), sessionReady: Date.now() }));
-          console.log("🔍 [AuthDebug] Bootstrap: Restoring from LS.");
-          setSession(lsSession);
-          setUser(lsSession.user);
-          setUserData(lsUser);
-          setIsAuthenticated(true);
-          // If we have LS data, we can consider auth "ready" for initial UI
-          if (lsUser) {
-            console.log("🔍 [AuthDebug] Bootstrap: LS Profile exists, setting isAuthReady=true");
-            setIsAuthReady(true);
+
+        if (lsSession?.refresh_token && lsSession.user) {
+          console.log("🔍 [AuthDebug] Bootstrap: Restoring from LS Backup.");
+          setAuthTimings(prev => ({ ...prev, sessionReady: Date.now() }));
+          
+          if (mounted) {
+            setSession(lsSession);
+            setUser(lsSession.user);
+            setUserData(lsUser);
+            setIsAuthenticated(true);
+            if (lsUser) {
+              console.log("🔍 [AuthDebug] Bootstrap: LS Profile exists, setting isAuthReady=true");
+              setIsAuthReady(true);
+            }
           }
           
-          void ensureUser(lsSession.user);
-        } else {
-          setAuthTimings(prev => ({ ...prev, start: Date.now() }));
-        }
+          // Attempt a formal setSession to refresh the Supabase client state
+          await supabase.auth.setSession({
+            access_token: lsSession.access_token,
+            refresh_token: lsSession.refresh_token,
+          }).catch(() => console.warn("LS Session restoration refresh failed"));
 
-        // 3. No valid session anywhere
-        if (mounted) {
-          console.log("🔍 [AuthDebug] Bootstrap: No valid session found, clearing data.");
-          persistSessionToLS(null);
-          persistUserDataToLS(null);
-          setUserData(null);
+          await ensureUser(lsSession.user);
+        } else {
+          // 3. No valid session anywhere
+          if (mounted) {
+            console.log("🔍 [AuthDebug] Bootstrap: No valid session found, clearing data.");
+            persistSessionToLS(null);
+            persistUserDataToLS(null);
+            setUserData(null);
+          }
         }
       } catch (err) {
         console.error("Auth bootstrap failed", err);
