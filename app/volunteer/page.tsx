@@ -330,7 +330,7 @@ export default function VolunteerDashboardPage() {
                       onClick={() => {
                         void handleToggleShake(event.event_id);
                       }}
-                      className={`relative h-7 w-12 rounded-full transition-colors ${
+                      className={`relative h-7 w-12 overflow-hidden rounded-full transition-colors ${
                         shakeEnabled && activeScanEvent === event.event_id
                           ? "bg-emerald-500"
                           : "bg-slate-200"
@@ -338,8 +338,8 @@ export default function VolunteerDashboardPage() {
                     >
                       <span className="sr-only">Toggle Shake to Scan</span>
                       <span
-                        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                          shakeEnabled && activeScanEvent === event.event_id ? "translate-x-6" : "translate-x-1"
+                        className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                          shakeEnabled && activeScanEvent === event.event_id ? "translate-x-5" : "translate-x-0"
                         }`}
                       />
                     </button>
