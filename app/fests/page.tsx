@@ -56,7 +56,7 @@ export default function FestsPage() {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       try {
-        const data = await apiRequest(`/fests`, { signal: controller.signal });
+        const data = (await apiRequest(`/fests`, { signal: controller.signal })) as any;
         const festArray = data.fests ?? data.data ?? data ?? [];
         if (!Array.isArray(festArray) || festArray.length === 0) {
           setFests([]);

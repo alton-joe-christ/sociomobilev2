@@ -128,9 +128,9 @@ export default function ProfilePage() {
           headers.Authorization = `Bearer ${session.access_token}`;
         }
 
-        const res = await apiRequest(`/registrations?${params.toString()}`, {
+        const res = (await apiRequest(`/registrations?${params.toString()}`, {
           headers
-        });
+        })) as any;
         if (res) {
           const regs = Array.isArray(res) ? res : res.registrations ?? res ?? [];
           const normalized = (Array.isArray(regs) ? regs : [])
@@ -210,7 +210,7 @@ export default function ProfilePage() {
     setCancellingId(registration.registration_id);
     setCancelConfirmId(null);
     try {
-      await apiRequest(`/registrations/self/${encodeURIComponent(registration.registration_id)}`, {
+      await apiRequest<any>(`/registrations/self/${encodeURIComponent(registration.registration_id)}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
