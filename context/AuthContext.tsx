@@ -211,41 +211,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* Fetch profile from backend */
   const fetchUserData = useCallback(async function fetchUserDataInternal(email: string, accessToken?: string, retryCount = 0): Promise<UserData | null> {
+    console.time(`🔍 [AuthDebug] ProfileFetch-${email}`);
+    console.log(`🔍 [AuthDebug] fetchUserData: Starting attempt ${retryCount + 1} for ${email}.`);
+    
+    const headers: Record<string, string> = {};
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+    // Abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
-      console.time(`🔍 [AuthDebug] ProfileFetch-${email}`);
-      console.log(`🔍 [AuthDebug] fetchUserData: Starting attempt ${retryCount + 1} for ${email}.`);
-      
-      const headers: Record<string, string> = {};
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      const res = await fetch(
+        accessToken ? `${PWA_API_URL}/users/me` : `${PWA_API_URL}/users/${encodeURIComponent(email)}`,
+        {
+          headers,
+          cache: "no-store",
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
 
-      // Abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-      try {
-        const res = await fetch(
-          accessToken ? `${PWA_API_URL}/users/me` : `${PWA_API_URL}/users/${encodeURIComponent(email)}`,
-          {
-            headers,
-            cache: "no-store",
-            signal: controller.signal
-          }
-        );
-        clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
         const fetchedUser = data.user ?? data;
         fetchedUser.roles = fetchedUser.roles ?? data.roles ?? {};
         
-        // Derive catering role from caters array - must have at least one entry with is_catering: true
         if (fetchedUser.caters && fetchedUser.caters.some((c: any) => c.is_catering)) {
           fetchedUser.roles.catering = true;
         }
 
-        // Only retain volunteer and catering roles for mobile
         fetchedUser.roles = {
           catering: fetchedUser.roles.catering,
-          // volunteer role is determined by volunteerEvents presence
         };
 
         let volEvents = Array.isArray(fetchedUser.volunteerEvents)
@@ -254,7 +251,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ? data.volunteerEvents
             : undefined;
 
-        // If volunteerEvents is undefined (not provided by backend), try fetching from the dedicated endpoint
         if (volEvents === undefined && accessToken) {
           try {
             const volRes = await fetch(`${PWA_API_URL}/volunteer/events`, {
@@ -274,36 +270,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         
         fetchedUser.volunteerEvents = volEvents || [];
-
-        console.log(`User fetched via /me. Volunteer events count: ${fetchedUser.volunteerEvents?.length || 0}`);
         setUserData(fetchedUser);
         persistUserDataToLS(fetchedUser);
         return fetchedUser;
       }
 
-      // Fallback: If /me failed (404), try fetching by email directly
       if (res.status === 404 && accessToken && email) {
-        console.log(`Profile not found via token, trying email fallback for: ${email}`);
         const fallbackRes = await fetch(`${PWA_API_URL}/users/${encodeURIComponent(email)}`, {
           cache: "no-store",
         });
         if (fallbackRes.ok) {
           const data = await fallbackRes.json();
-          console.log(`Fallback user data keys: ${Object.keys(data).join(", ")}`);
-          if (data.user) console.log(`Fallback data.user keys: ${Object.keys(data.user).join(", ")}`);
           const fetchedUser = data.user ?? data;
-          console.log(`Volunteer events raw data: ${JSON.stringify(data.volunteerEvents || [])}`);
           fetchedUser.roles = fetchedUser.roles ?? data.roles ?? {};
 
-          // Derive catering role from caters array - must have at least one entry with is_catering: true
           if (fetchedUser.caters && fetchedUser.caters.some((c: any) => c.is_catering)) {
             fetchedUser.roles.catering = true;
           }
 
-          // Only retain volunteer and catering roles for mobile
           fetchedUser.roles = {
             catering: fetchedUser.roles.catering,
-            // volunteer role is determined by volunteerEvents presence
           };
 
           let fallbackVolEvents = Array.isArray(fetchedUser.volunteerEvents)
@@ -312,42 +298,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ? data.volunteerEvents
               : undefined;
 
-          // If volunteerEvents is undefined, try fetching from the dedicated endpoint
           if (fallbackVolEvents === undefined) {
             try {
-              // Try token-based first if we have one
               let volData: any = null;
               if (accessToken) {
                 const volRes = await fetch(`${PWA_API_URL}/volunteer/events`, {
                   headers: { Authorization: `Bearer ${accessToken}` },
                   cache: "no-store",
                 });
-                if (volRes.ok) {
-                  volData = await volRes.json();
-                }
+                if (volRes.ok) volData = await volRes.json();
               }
 
-              // If token-based failed or returned empty, try email-based fallback
               if (!volData || !volData.events) {
-                console.log(`Trying email-based volunteer fetch for ${email}`);
                 const emailVolRes = await fetch(`${PWA_API_URL}/volunteer/events?email=${encodeURIComponent(email)}`, {
                   cache: "no-store",
                 });
-                if (emailVolRes.ok) {
-                  volData = await emailVolRes.json();
-                }
+                if (emailVolRes.ok) volData = await emailVolRes.json();
               }
 
               fallbackVolEvents = volData?.events || [];
             } catch (err) {
-              console.error("Failed to fetch volunteer events during fallback", err);
               fallbackVolEvents = [];
             }
           }
           
           fetchedUser.volunteerEvents = fallbackVolEvents || [];
-
-          console.log(`User fetched via fallback. Volunteer events count: ${fetchedUser.volunteerEvents?.length || 0}`);
           setUserData(fetchedUser);
           persistUserDataToLS(fetchedUser);
           return fetchedUser;
@@ -356,6 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       console.error(`🔍 [AuthDebug] fetchUserData Error: ${e.message}`);
     } finally {
+      clearTimeout(timeoutId);
       console.timeEnd(`🔍 [AuthDebug] ProfileFetch-${email}`);
     }
 
@@ -366,8 +342,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return null;
-  // PWA_API_URL is a module-level compile-time constant — not a reactive dep.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const maybeShowOutsiderWelcome = useCallback((fetchedUser: UserData | null, authUserId?: string) => {
