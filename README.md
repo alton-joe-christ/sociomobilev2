@@ -187,3 +187,4 @@ At runtime, most client-side auth state is managed via `context/AuthContext.tsx`
 2. Make changes
 3. Run `npm run lint` and `npm run build`
 4. Open a PR
+\n## Android Build (Capacitor)\n\nThe app is wrapped in Capacitor for Android distribution.\n\n### Build Process\n1. Build web assets: `npm run build`\n2. Sync assets to Android: `npx cap sync android`\n3. Build APK: `cd android && ./gradlew assembleDebug`\n\n### Distribution\nThe resulting debug APK is located at:\n`android/app/build/outputs/apk/debug/app-debug.apk`\n\nIt is copied to `apk/socio-mobile-debug.apk` for version tracking and distribution.\n\n### Authentication Note (Capacitor)\nTo prevent "Authenticating..." hangs during deep-link session restoration, the app uses a direct state update pattern in `context/AuthContext.tsx` rather than relying solely on `onAuthStateChange` listeners.
