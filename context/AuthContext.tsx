@@ -514,7 +514,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const code = url.searchParams.get("code");
         const token = url.searchParams.get("token") || url.searchParams.get("access_token");
         const refreshToken = url.searchParams.get("refresh_token") || url.searchParams.get("refreshToken") || url.searchParams.get("refresh");
         const error = url.searchParams.get("error");
@@ -527,27 +526,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (code) {
-          console.log("✅ [DeepLink] OAuth code received, exchanging for session...");
-
-          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeErr) {
-            console.error("❌ [DeepLink] exchangeCodeForSession failed:", exchangeErr.message, exchangeErr);
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent("auth_error", { detail: exchangeErr.message }));
-            }
-            return;
-          }
-
-          try {
-            await Browser.close();
-            console.log("✅ [DeepLink] Browser closed successfully.");
-          } catch (e) {
-            console.warn("[DeepLink] Browser.close() failed or not available:", e);
-          }
-
-          console.log("🎉 [DeepLink] OAuth code exchange completed.");
-        } else if (token && refreshToken) {
+        if (token && refreshToken) {
           console.log("✅ [DeepLink] Tokens received, setting session...");
 
           // Try to close the browser first (best-effort), then set session.
@@ -572,8 +551,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("🎉 [DeepLink] Session set successfully for:", data.user?.email);
           }
         } else {
-          console.warn("⚠️ [DeepLink] Missing code/tokens in URL params", {
-            codePresent: !!code,
+          console.warn("⚠️ [DeepLink] Missing tokens in URL params", {
             tokenPresent: !!token,
             refreshPresent: !!refreshToken,
           });
