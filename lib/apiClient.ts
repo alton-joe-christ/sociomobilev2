@@ -164,10 +164,15 @@ async function fetchWithTimeout(
         };
 
         const result = await CapacitorHttp.request(options);
+        
+        // Ensure status is within valid Range (200-599) for Response constructor.
+        // CapacitorHttp returns 0 for network errors.
+        const safeStatus = (result.status >= 200 && result.status <= 599) ? result.status : 503;
+        
         const bodyText = typeof result.data === 'string' ? result.data : JSON.stringify(result.data);
         
         return new Response(bodyText, {
-            status: result.status,
+            status: safeStatus,
             headers: result.headers,
         });
       } catch (error) {

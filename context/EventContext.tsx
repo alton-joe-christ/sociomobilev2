@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react";
+import { apiRequest } from "@/lib/apiClient";
 
 /* ── Types ── */
 export interface FetchedEvent {
@@ -72,7 +73,7 @@ export interface Fest {
   department?: string | null;
 }
 
-/* ── Campus Availability Logic (ported from socio2026v2/client/context/EventContext.tsx) ── */
+/* ── Campus Availability Logic ── */
 
 export interface CampusScopedItem {
   campus_hosted_at?: string | null;
@@ -138,36 +139,18 @@ const matchesCampusText = (value: string | null | undefined, matchers: string[])
   );
 };
 
-/**
- * Returns true if the item is visible to a user on the given campus.
- * Items with no campus restriction (no campus_hosted_at and no allowed_campuses)
- * are treated as visible to everyone.
- */
 export const matchesSelectedCampus = (
   item: CampusScopedItem,
   selectedCampus: string
 ): boolean => {
   if (!selectedCampus) return true;
-
   const campusMatchers = getCampusMatchers(selectedCampus);
   if (campusMatchers.length === 0) return true;
-
   const allowedCampuses = parseCampusField(item.allowed_campuses);
-  const hasCampusData =
-    Boolean(normalizeCampusText(item.campus_hosted_at)) ||
-    allowedCampuses.length > 0;
-
-  // No explicit campus restriction set — treat as visible to everyone
+  const hasCampusData = Boolean(normalizeCampusText(item.campus_hosted_at)) || allowedCampuses.length > 0;
   if (!hasCampusData) return true;
-
-  if (matchesCampusText(item.campus_hosted_at, campusMatchers)) {
-    return true;
-  }
-
-  if (allowedCampuses.some((campus) => matchesCampusText(campus, campusMatchers))) {
-    return true;
-  }
-
+  if (matchesCampusText(item.campus_hosted_at, campusMatchers)) return true;
+  if (allowedCampuses.some((campus) => matchesCampusText(campus, campusMatchers))) return true;
   return false;
 };
 
@@ -175,12 +158,14 @@ interface EventCtx {
   allEvents: FetchedEvent[];
   isLoading: boolean;
   error: string | null;
+  refreshEvents: () => Promise<void>;
 }
 
 const EventContext = createContext<EventCtx>({
   allEvents: [],
   isLoading: false,
   error: null,
+  refreshEvents: async () => {},
 });
 
 export const useEvents = () => useContext(EventContext);
@@ -192,10 +177,33 @@ export function EventProvider({
   initialEvents?: FetchedEvent[];
   children: ReactNode;
 }) {
-  const [allEvents] = useState<FetchedEvent[]>(initialEvents);
+  const [allEvents, setAllEvents] = useState<FetchedEvent[]>(initialEvents);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshEvents = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data: any = await apiRequest(`/events`, { cache: "no-store" });
+      const events = data.events ?? data.data ?? data ?? [];
+      setAllEvents(Array.isArray(events) ? events : []);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch events");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch events on mount if we have none (e.g. static export fallback)
+  useEffect(() => {
+    if (allEvents.length === 0) {
+      void refreshEvents();
+    }
+  }, [allEvents.length, refreshEvents]);
 
   return (
-    <EventContext.Provider value={{ allEvents, isLoading: false, error: null }}>
+    <EventContext.Provider value={{ allEvents, isLoading, error, refreshEvents }}>
       {children}
     </EventContext.Provider>
   );

@@ -1,32 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, memo, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { AlertTriangleIcon, CameraIcon, CheckCircleIcon, QrCodeIcon, XIcon, UserIcon } from "@/components/icons";
+import { AlertTriangleIcon, CameraIcon, CheckCircleIcon, QrCodeIcon, XIcon } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { apiRequest } from "@/lib/apiClient";
-import { getScanner, IScanner, ScannerResult } from "@/lib/ScannerService";
-import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
+import { getScanner, IScanner, ScannerResult, PermissionStatus } from "@/lib/ScannerService";
+import { Haptics, NotificationType } from "@capacitor/haptics";
 import { Capacitor } from "@capacitor/core";
 import toast from "react-hot-toast";
 
 interface QRScannerProps {
   eventId: string;
-  onScanSuccess?: (result: ScanPayload) => void;
-}
-
-interface ScanResult {
-  name?: string;
-  email?: string;
-  registrationId?: string;
-  status?: "marked_present" | "already_present";
-  markedAt?: string;
-}
-
-interface ScanPayload {
-  participant?: ScanResult;
-  error?: string;
-  message?: string;
+  onScanSuccess?: (result: any) => void;
 }
 
 interface HistoryItem {
@@ -38,91 +24,90 @@ interface HistoryItem {
   message?: string;
 }
 
+/**
+ * MEMOIZED OVERLAY UI
+ * Isolates the scanner overlay from main component rerenders
+ */
+const ScannerOverlay = memo(({ isScanning, isNative }: { isScanning: boolean; isNative: boolean }) => {
+  if (!isScanning) return null;
+
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-6 z-10">
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-[16px]" />
+        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-[16px]" />
+        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-[16px]" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-[16px]" />
+      </div>
+      <div className="pointer-events-none absolute left-6 right-6 h-[1px] bg-emerald-400 shadow-[0_0_8px_4px_rgba(52,211,153,0.4)] animate-scanner-laser z-10" />
+    </>
+  );
+});
+
+ScannerOverlay.displayName = "ScannerOverlay";
+
 export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
   const { session, userData } = useAuth();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<IScanner | null>(null);
   
   const [isScanning, setIsScanning] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, setPermission] = useState<PermissionStatus>('prompt');
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const attendeeCacheRef = useRef<Map<string, { name: string; status: string }>>(new Map());
 
+  const isNative = useMemo(() => Capacitor.isNativePlatform(), []);
+
   useEffect(() => {
     scannerRef.current = getScanner();
+    void scannerRef.current.checkPermission().then(setPermission);
+    
     return () => {
       void scannerRef.current?.stop();
     };
   }, []);
 
-  const triggerHaptic = async (type: "success" | "error" | "warning") => {
-    if (Capacitor.isNativePlatform()) {
-      if (type === "success") {
-        await Haptics.notification({ type: NotificationType.Success });
-      } else if (type === "warning") {
-        await Haptics.notification({ type: NotificationType.Warning });
-      } else {
-        await Haptics.notification({ type: NotificationType.Error });
-      }
+  const triggerFeedback = useCallback(async (type: "success" | "error" | "warning") => {
+    // Haptics
+    if (isNative) {
+      const hapticType = type === "success" ? NotificationType.Success : 
+                         type === "warning" ? NotificationType.Warning : 
+                         NotificationType.Error;
+      await Haptics.notification({ type: hapticType });
     } else if ("vibrate" in navigator) {
-      if (type === "success") {
-        navigator.vibrate(200);
-      } else {
-        navigator.vibrate([100, 50, 100]);
-      }
+      navigator.vibrate(type === "success" ? 200 : [100, 50, 100]);
     }
-  };
 
-  const playSound = (type: "success" | "error") => {
+    // Audio
     try {
       const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
       const audioCtx = new AudioContextClass();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
-
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-
       oscillator.type = "sine";
-      if (type === "success") {
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.15);
-      } else {
-        oscillator.frequency.setValueAtTime(220, audioCtx.currentTime); // A3 note
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.3);
-      }
-    } catch (e) {
-      console.warn("Sound feedback failed:", e);
-    }
-  };
-
-  const stopScanner = async () => {
-    await scannerRef.current?.stop();
-    setIsScanning(false);
-  };
+      oscillator.frequency.setValueAtTime(type === "success" ? 880 : 220, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + (type === "success" ? 0.15 : 0.3));
+    } catch (e) {}
+  }, [isNative]);
 
   const processScan = async (scanResult: ScannerResult) => {
     if (!session?.access_token) return;
 
-    const startPerf = performance.now();
     const qrCodeData = scanResult.data;
     const now = Date.now();
     const lastScanTime = cooldownMapRef.current.get(qrCodeData);
 
     // 3 second cooldown for the EXACT same QR code
-    if (lastScanTime && now - lastScanTime < 3000) {
-      return; 
-    }
+    if (lastScanTime && now - lastScanTime < 3000) return; 
     cooldownMapRef.current.set(qrCodeData, now);
 
-    // 1. Local Validation (Phase 5)
     let optimisticName = "Attendee";
     let isLocallyPresent = false;
 
@@ -138,26 +123,15 @@ export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
     }
 
     if (isLocallyPresent) {
-       void triggerHaptic("warning");
+       void triggerFeedback("warning");
        toast.success(`Already scanned: ${optimisticName}`, { icon: "⚠️" });
-       
-       const newWarningItem: HistoryItem = {
-         id: Math.random().toString(36).substr(2, 9),
-         qrData: qrCodeData,
-         name: optimisticName,
-         status: "already_present",
-         time: new Date(),
-         message: "Already marked present (Local Cache)"
-       };
-       setHistory(prev => [newWarningItem, ...prev].slice(0, 50)); 
        return;
     }
 
     // Mark locally to prevent concurrent duplicate scans
     attendeeCacheRef.current.set(qrCodeData, { name: optimisticName, status: "already_present" });
 
-    void triggerHaptic("success");
-    playSound("success");
+    void triggerFeedback("success");
 
     const historyId = Math.random().toString(36).substr(2, 9);
     const newSuccessItem: HistoryItem = {
@@ -183,11 +157,8 @@ export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
       },
     };
 
-    console.log(`🔍 [ScannerPerf] Optimistic Update took ${performance.now() - startPerf}ms`);
-
-    // 2. Background Sync (Phase 4 & 12)
+    // Background Sync
     void (async () => {
-      const syncStart = performance.now();
       try {
         const payload: any = await apiRequest(`/events/${encodeURIComponent(eventId)}/scan-qr`, {
           method: "POST",
@@ -211,75 +182,65 @@ export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
           message: isAlreadyPresent ? "Already marked present" : "Attendance marked"
         } : item));
 
-        if (isAlreadyPresent) {
-           void triggerHaptic("warning");
-        }
+        if (isAlreadyPresent) void triggerFeedback("warning");
         toast.success(isAlreadyPresent ? `Already scanned: ${finalName}` : `Checked in: ${finalName}`, { icon: isAlreadyPresent ? "⚠️" : undefined });
-        
-        console.log(`🔍 [ScannerPerf] Background API Sync took ${performance.now() - syncStart}ms`);
         onScanSuccess?.(payload);
       } catch (err: any) {
         attendeeCacheRef.current.delete(qrCodeData);
         cooldownMapRef.current.set(qrCodeData, 0); 
-        
         const errMsg = err.message || "Invalid QR or Network Error";
-        void triggerHaptic("error");
-        playSound("error");
+        void triggerFeedback("error");
         toast.error(errMsg);
-        
-        setHistory(prev => prev.map(item => item.id === historyId ? {
-          ...item,
-          status: "error" as const,
-          message: errMsg
-        } : item));
-        
-        console.log(`🔍 [ScannerPerf] Background API Sync Failed in ${performance.now() - syncStart}ms`);
+        setHistory(prev => prev.map(item => item.id === historyId ? { ...item, status: "error", message: errMsg } : item));
       }
     })();
   };
 
   const startScanner = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !scannerRef.current) return;
     if (!session?.access_token) {
       setError("Please sign in again to use the scanner.");
       return;
     }
 
     try {
-      console.log('[QRScanner] Starting scanner. Platform Native:', Capacitor.isNativePlatform());
       setError(null);
+      let currentPermission = await scannerRef.current.checkPermission();
       
-      // Request permissions (handled by the service for native)
-      if (!Capacitor.isNativePlatform()) {
-        console.log('[QRScanner] Requesting web camera permissions...');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach((track) => track.stop());
+      if (currentPermission !== 'granted') {
+        currentPermission = await scannerRef.current.requestPermission();
+        setPermission(currentPermission);
+        if (currentPermission !== 'granted') {
+          throw new Error("Camera permission is required to scan QR codes.");
+        }
       }
-      setHasPermission(true);
 
-      console.log('[QRScanner] Calling scannerRef.current?.start()...');
-      await scannerRef.current?.start(videoRef.current, (result) => {
+      await scannerRef.current.start(videoRef.current, (result) => {
         void processScan(result);
       });
       
-      console.log('[QRScanner] Scanner started successfully.');
       setIsScanning(true);
     } catch (err: any) {
-      console.error("[QRScanner] Scanner failed to start:", err);
-      setHasPermission(false);
+      console.error("[QRScanner] Scanner failed:", err);
       setIsScanning(false);
-      setError(err.message || "Camera access is required to scan QR codes.");
+      setError(err.message || "Camera access is required.");
     }
+  };
+
+  const stopScanner = async () => {
+    await scannerRef.current?.stop();
+    setIsScanning(false);
   };
 
   return (
     <div className="space-y-4">
-      <div className={`card overflow-hidden ${isScanning && Capacitor.isNativePlatform() ? 'native-scanning' : ''}`}>
+      <div className={`card overflow-hidden ${isScanning && isNative ? 'native-scanning' : ''}`}>
         <div className="p-4">
-          <div className={`relative overflow-hidden rounded-[22px] bg-black ${isScanning && Capacitor.isNativePlatform() ? 'transparent-for-native shadow-none' : ''}`}>
+          <div className={`relative overflow-hidden rounded-[22px] bg-black ${isScanning && isNative ? 'transparent-for-native shadow-none' : ''}`}>
+            {/* The video element is only used on Web. On Native, it's hidden and the WebView is made transparent */}
             <video
               ref={videoRef}
-              className={`aspect-[4/3] w-full object-cover ${Capacitor.isNativePlatform() ? 'hidden' : ''}`}
+              className={`aspect-[4/3] w-full object-cover ${isNative ? 'hidden' : ''}`}
               muted
               playsInline
             />
@@ -294,22 +255,12 @@ export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
               </div>
             )}
             
-            {isScanning && (
-              <>
-                <div className="pointer-events-none absolute inset-6 z-10">
-                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-[16px]" />
-                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-[16px]" />
-                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-[16px]" />
-                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-[16px]" />
-                </div>
-                <div className="pointer-events-none absolute left-6 right-6 h-[1px] bg-emerald-400 shadow-[0_0_8px_4px_rgba(52,211,153,0.4)] animate-scanner-laser z-10" />
-              </>
-            )}
+            <ScannerOverlay isScanning={isScanning} isNative={isNative} />
           </div>
 
-          {hasPermission === false && (
+          {permission === 'denied' && (
             <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-[12px] font-semibold text-red-700">
-              Camera permission is required to scan QR codes.
+              Camera permission is denied. Please enable it in Settings.
             </div>
           )}
 
@@ -366,9 +317,7 @@ export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
                   item.status === 'already_present' ? 'bg-amber-100 text-amber-600' :
                   'bg-red-100 text-red-600'
                 }`}>
-                  {item.status === 'success' ? <CheckCircleIcon size={14} /> :
-                   item.status === 'already_present' ? <CheckCircleIcon size={14} /> :
-                   <XIcon size={14} />}
+                  {item.status === 'success' || item.status === 'already_present' ? <CheckCircleIcon size={14} /> : <XIcon size={14} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-bold text-[var(--color-text)] truncate">
@@ -379,7 +328,7 @@ export default function QRScanner({ eventId, onScanSuccess }: QRScannerProps) {
                   </p>
                 </div>
                 <div className="text-[10px] font-semibold text-[var(--color-text-light)] whitespace-nowrap">
-                  {item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  {item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
             ))}

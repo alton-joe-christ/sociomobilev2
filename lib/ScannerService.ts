@@ -1,5 +1,5 @@
 import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
-import { BarcodeScanner, BarcodeFormat, LensFacing, Resolution } from '@capacitor-mlkit/barcode-scanning';
+import { BarcodeScanner, BarcodeFormat, LensFacing } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
 
 export interface ScannerResult {
@@ -7,11 +7,15 @@ export interface ScannerResult {
   format: string;
 }
 
+export type PermissionStatus = 'prompt' | 'granted' | 'denied' | 'unsupported';
+
 export interface IScanner {
   start(videoElement: HTMLVideoElement, onScan: (result: ScannerResult) => void): Promise<void>;
   stop(): Promise<void>;
   pause(): void;
   resume(): void;
+  checkPermission(): Promise<PermissionStatus>;
+  requestPermission(): Promise<PermissionStatus>;
 }
 
 /**
@@ -24,8 +28,28 @@ class WebScanner implements IScanner {
 
   constructor() {
     this.reader = new BrowserQRCodeReader(undefined, {
-      delayBetweenScanAttempts: 100, // Reduced from 150 for slightly faster web scanning
+      delayBetweenScanAttempts: 100,
     });
+  }
+
+  async checkPermission(): Promise<PermissionStatus> {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices) return 'unsupported';
+    try {
+      const result = await navigator.permissions.query({ name: 'camera' as any });
+      return result.state as PermissionStatus;
+    } catch {
+      return 'prompt';
+    }
+  }
+
+  async requestPermission(): Promise<PermissionStatus> {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
+      return 'granted';
+    } catch {
+      return 'denied';
+    }
   }
 
   async start(videoElement: HTMLVideoElement, onScan: (result: ScannerResult) => void): Promise<void> {
@@ -73,40 +97,33 @@ class WebScanner implements IScanner {
  */
 class CapacitorScanner implements IScanner {
   private isPaused = false;
-  private listener: Promise<any> | null = null;
+
+  async checkPermission(): Promise<PermissionStatus> {
+    try {
+      const status = await BarcodeScanner.checkPermissions();
+      return status.camera as PermissionStatus;
+    } catch {
+      return 'unsupported';
+    }
+  }
+
+  async requestPermission(): Promise<PermissionStatus> {
+    try {
+      const status = await BarcodeScanner.requestPermissions();
+      return status.camera as PermissionStatus;
+    } catch {
+      return 'denied';
+    }
+  }
 
   async start(_videoElement: HTMLVideoElement, onScan: (result: ScannerResult) => void): Promise<void> {
     const t0 = performance.now();
     try {
-      console.log('[CapacitorScanner] Checking camera permission...');
-      // Check/Request permissions
-      let status = await BarcodeScanner.checkPermissions();
-      
-      if (status.camera !== 'granted') {
-        const hasPrompted = localStorage.getItem('camera_permission_prompted');
-        if (status.camera === 'denied' && hasPrompted) {
-          throw new Error('Camera permission denied. Please enable it in Settings.');
-        }
-
-        console.log('[CapacitorScanner] Requesting camera permission...');
-        localStorage.setItem('camera_permission_prompted', 'true');
-        status = await BarcodeScanner.requestPermissions();
-        
-        if (status.camera !== 'granted') {
-           localStorage.setItem('camera_permission_granted', 'false');
-           throw new Error('Camera permission is required to scan QR codes.');
-        }
-      }
-      
-      localStorage.setItem('camera_permission_granted', 'true');
-      console.log(`🔍 [ScannerPerf] Permissions checked in ${performance.now() - t0}ms`);
-
-      const t1 = performance.now();
       // Start scanning
       await BarcodeScanner.addListener('barcodesScanned', (event) => {
         if (this.isPaused || !event.barcodes.length) return;
         const barcode = event.barcodes[0];
-        console.log(`🔍 [ScannerPerf] Native ML Kit Detected QR in ${performance.now() - t1}ms`);
+        console.log(`🔍 [ScannerPerf] Native ML Kit Detected QR`);
         onScan({
           data: barcode.displayValue,
           format: barcode.format,
@@ -116,7 +133,6 @@ class CapacitorScanner implements IScanner {
       await BarcodeScanner.startScan({
         formats: [BarcodeFormat.QrCode],
         lensFacing: LensFacing.Back,
-        resolution: 1, // 1280x720 for optimal performance vs detection speed
       });
 
       console.log(`🔍 [ScannerPerf] Native Scanner Startup Time: ${performance.now() - t0}ms`);
@@ -154,13 +170,8 @@ class CapacitorScanner implements IScanner {
  */
 export const getScanner = (): IScanner => {
   const isNative = Capacitor.isNativePlatform();
-  console.log(`🔍 [ScannerPlatformDebug] Detected platform isNative: ${isNative}`);
-  
   if (isNative) {
-    console.log(`🔍 [ScannerPlatformDebug] Selected scanner engine: Capacitor ML Kit`);
     return new CapacitorScanner();
   }
-  
-  console.log(`🔍 [ScannerPlatformDebug] Selected scanner engine: Browser Web Fallback`);
   return new WebScanner();
 };

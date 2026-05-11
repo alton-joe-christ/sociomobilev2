@@ -28,6 +28,7 @@ const fetcher = async (url: string) => {
 const ITEMS_PER_PAGE = 8;
 
 export default function FestsPage() {
+  const [mounted, setMounted] = useState(false);
   const { data: fests = [], isLoading: loading } = useSWR('/fests', fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
@@ -40,26 +41,24 @@ export default function FestsPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (isSearchOpen) searchInputRef.current?.focus();
-  }, [isSearchOpen]);
-
   const { userData } = useAuth();
+  const [selectedCampus, setSelectedCampus] = useState("Central Campus (Main)");
 
-  // Seed the selected campus from the user's profile campus
-  const [selectedCampus, setSelectedCampus] = useState(
-    userData?.campus || "Central Campus (Main)"
-  );
-
-  // Keep campus in sync if userData loads after mount
   useEffect(() => {
-    if (userData?.campus && selectedCampus === "Central Campus (Main)") {
+    setMounted(true);
+    if (userData?.campus) {
       setSelectedCampus(userData.campus);
     }
   }, [userData?.campus]);
 
+  useEffect(() => {
+    if (isSearchOpen) searchInputRef.current?.focus();
+  }, [isSearchOpen]);
+
   const filtered = useMemo(() => {
-    // 1. Campus filter — hide fests not relevant to the user's campus
+    if (!mounted) return [];
+    
+    // 1. Campus filter
     let list = fests.filter((f) =>
       matchesSelectedCampus(
         {
