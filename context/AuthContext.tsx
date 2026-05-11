@@ -336,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (supaUser: User) => {
       const email = supaUser.email!;
       console.time(`🔍 [AuthDebug] TotalProfileInit-${email}`);
-      console.log(`🔍 [AuthDebug] ensureUser: Starting background initialization for ${email}`);
+      console.log(`🔍 [AuthDebug] ${new Date().toISOString()} ensureUser: Starting background initialization for ${email}`);
       
       const orgType = getOrgType(email);
       let fullName = supaUser.user_metadata?.full_name || supaUser.user_metadata?.name || "";
@@ -386,7 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fetchedUser = await fetchUserData(email);
       
       if (fetchedUser) {
-        console.log(`🔍 [AuthDebug] ensureUser: SUCCESS. Profile hydrated.`);
+        console.log(`🔍 [AuthDebug] ${new Date().toISOString()} ensureUser: SUCCESS. Profile hydrated.`);
         setAuthTimings(prev => ({ ...prev, profileReady: Date.now() }));
         setIsAuthReady(true);
         maybeShowOutsiderWelcome(fetchedUser, supaUser.id);
@@ -458,7 +458,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined" || !Capacitor.isNativePlatform()) return;
 
     const handleDeepLink = async (incomingUrl: string) => {
-      console.log("👉 [DeepLink] Incoming URL:", incomingUrl);
+      console.log(`👉 [DeepLink] ${new Date().toISOString()} Incoming URL: ${incomingUrl}`);
       try {
         const url = new URL(incomingUrl);
         console.log("👉 [DeepLink] Parsed URL:", {
@@ -518,7 +518,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               window.dispatchEvent(new CustomEvent("auth_error", { detail: sessionErr.message }));
             }
           } else {
-            console.log("🎉 [DeepLink] Session set successfully for:", data.user?.email);
+            console.log(`🎉 [DeepLink] ${new Date().toISOString()} Session set successfully for: ${data.user?.email}`);
 
             // 🔍 [AuthDebug] DIRECT STATE UPDATE
             if (data.session) {
@@ -529,13 +529,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               scheduleTokenRefresh(data.session);
               void ensureUser(data.session.user);
               setIsLoading(false);
-              console.log("🔍 [AuthDebug] Session restored. Triggering HARD RELOAD to clear stale state.");
-
-              // FORCE RELOAD: This is the nuclear option to clear "Authenticating..." hang
-              // and force the app to re-bootstrap with the new session.
-              setTimeout(() => {
-                window.location.reload();
-              }, 500);
+              console.log(`🔍 [AuthDebug] ${new Date().toISOString()} Session restored. Syncing state...`);
             }
           }
         } else if (authCode) {
@@ -567,12 +561,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               scheduleTokenRefresh(data.session);
               void ensureUser(data.session.user);
               setIsLoading(false);
-              console.log("🔍 [AuthDebug] Session exchanged. Triggering HARD RELOAD to clear stale state.");
-
-              // FORCE RELOAD: Ensure clean slate after OAuth return
-              setTimeout(() => {
-                window.location.reload();
-              }, 500);
+              console.log(`🔍 [AuthDebug] ${new Date().toISOString()} Session exchanged. Syncing state...`);
             }
           }
         } else {
@@ -623,7 +612,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function bootstrap() {
       if (typeof window === "undefined") return;
 
-      console.log("🔍 [AuthDebug] Bootstrap: Starting sequence...");
+      console.log(`🔍 [AuthDebug] ${new Date().toISOString()} Bootstrap: Starting sequence...`);
       try {
         setAuthTimings(prev => ({ ...prev, start: Date.now() }));
 
@@ -699,7 +688,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, s) => {
       if (!mounted) return;
-      console.log(`🔍 [AuthDebug] onAuthStateChange: Event=${event}, SessionPresent=${!!s}`);
+      console.log(`🔍 [AuthDebug] ${new Date().toISOString()} onAuthStateChange: Event=${event}, SessionPresent=${!!s}`);
 
       setSession(s);
       setUser(s?.user ?? null);
@@ -775,21 +764,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ 
-        session, 
-        user, 
-        userData, 
-        isLoading: !isHydrated || isLoading, 
+      value={{
+        session,
+        user,
+        userData,
+        isLoading: !isHydrated || isLoading,
         isAuthReady,
-        isAuthenticated, 
-        needsCampus, 
-        signInWithGoogle, 
-        signOut, 
-        refreshUserData 
+        isAuthenticated,
+        needsCampus,
+        signInWithGoogle,
+        signOut,
+        refreshUserData
       }}
     >
+      {!isAuthReady && isLoading && <div className="fixed inset-0 z-[10000] bg-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-medium text-gray-500">Authenticating...</p>
+        </div>
+      </div>}
       {children}
-      
+
       {/* 🛠️ [DEBUG OVERLAY] - Temporary floating state indicator */}
       {process.env.NODE_ENV === "development" && (
         <div 

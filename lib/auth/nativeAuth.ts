@@ -13,7 +13,7 @@ import { Browser } from "@capacitor/browser";
 export async function signInWithGoogleNative() {
   const redirectUrl = "socio://auth/callback";
   
-  console.log(`🔍 [AuthDebug] [NativeAuth] Initiating OAuth flow. redirectTo: ${redirectUrl}`);
+  console.log(`🔍 [AuthDebug] ${new Date().toISOString()} [NativeAuth] Initiating OAuth flow. redirectTo: ${redirectUrl}`);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -32,7 +32,7 @@ export async function signInWithGoogleNative() {
 
   // Manually open the Google login in a Chrome Custom Tab / SFSafariViewController
   if (data?.url) {
-    console.log("🔍 [AuthDebug] [NativeAuth] Opening Browser with URL:", data.url);
+    console.log(`🔍 [AuthDebug] ${new Date().toISOString()} [NativeAuth] Opening Browser with URL: ${data.url}`);
     await Browser.open({ url: data.url });
   } else {
     throw new Error("No OAuth URL returned from Supabase.");
