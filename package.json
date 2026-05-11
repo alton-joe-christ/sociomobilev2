@@ -25,6 +25,7 @@
     "@zxing/library": "^0.22.0",
     "dayjs": "^1.11.19",
     "framer-motion": "^12.38.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.562.0",
     "next": "^15.1.6",
     "onesignal-cordova-plugin": "^5.3.7",
