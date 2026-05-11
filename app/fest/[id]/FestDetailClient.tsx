@@ -14,7 +14,10 @@ import { shareEvent } from "@/lib/share";
 
 import { apiRequest } from "@/lib/apiClient";
 
-const fetcher = async (url: string) => await apiRequest(url) as any;
+const fetcher = async (url: string) => {
+  const d = await apiRequest(url) as any;
+  return d.fest ?? d;
+};
 
 export default function FestDetailClient({ festId }: { festId: string }) {
   const router = useRouter();

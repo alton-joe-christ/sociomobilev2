@@ -1,5 +1,6 @@
 "use client";
 
+import useSWR from "swr";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -18,12 +19,20 @@ import { useDebounce } from "@/lib/useDebounce";
 import { formatDateRange, isDeadlinePassed } from "@/lib/dateUtils";
 import { shareEvent } from "@/lib/share";
 
+const fetcher = async (url: string) => {
+  const data = await apiRequest(url) as any;
+  const festArray = data.fests ?? data.data ?? data ?? [];
+  return Array.isArray(festArray) ? festArray : [];
+};
 
 const ITEMS_PER_PAGE = 8;
 
 export default function FestsPage() {
-  const [fests, setFests] = useState<Fest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: fests = [], isLoading: loading } = useSWR('/fests', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000,
+  });
+
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 250);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -107,7 +116,7 @@ export default function FestsPage() {
       });
     }
     return list;
-  }, [fests, debouncedSearch, activeCategory]);
+  }, [fests, debouncedSearch, activeCategory, selectedCampus]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
