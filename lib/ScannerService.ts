@@ -56,22 +56,32 @@ class WebScanner implements IScanner {
         videoElement,
         (result) => {
           if (this.isPaused) return;
-          console.log(`🔍 [ScannerPerf] QR Detected on Web: ${performance.now() - t0}ms since start`);
           onScan({
             data: result.data,
-            format: 'QR_CODE', // qr-scanner is QR only
+            format: 'QR_CODE', 
           });
         },
         {
           preferredCamera: 'environment',
           highlightScanRegion: true,
           highlightCodeOutline: true,
-          maxScansPerSecond: 10,
+          maxScansPerSecond: 25, // Increased for "instant" feel
+          calculateScanRegion: (v) => {
+             // ROI Optimization: Focus on the center 70% to reduce processing area
+             const smallestDimension = Math.min(v.videoWidth, v.videoHeight);
+             const scanRegionSize = Math.round(smallestDimension * 0.7);
+             return {
+               x: Math.round((v.videoWidth - scanRegionSize) / 2),
+               y: Math.round((v.videoHeight - scanRegionSize) / 2),
+               width: scanRegionSize,
+               height: scanRegionSize,
+             };
+          }
         }
       );
 
       await this.scanner.start();
-      console.log(`🔍 [ScannerPerf] Web Scanner Startup Time: ${performance.now() - t0}ms`);
+      console.log(`🔍 [ScannerPerf] Web Scanner Startup: ${performance.now() - t0}ms`);
     } catch (err) {
       console.error('[WebScanner] Start failed:', err);
       throw err;

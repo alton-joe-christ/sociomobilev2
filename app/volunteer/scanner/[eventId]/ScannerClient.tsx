@@ -54,6 +54,7 @@ export default function ScannerClient() {
   const scannerRef = useRef<IScanner | null>(null);
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const attendeeCacheRef = useRef<Map<string, { name: string; status: string }>>(new Map());
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isNative = useMemo(() => Capacitor.isNativePlatform(), []);
 
@@ -79,12 +80,10 @@ export default function ScannerClient() {
       return;
     }
 
-    // [DEDUPLICATION] If we already have the event in userData and it's active, skip the network check
     const isAlreadyValidated = !!cachedEvent;
     if (isAlreadyValidated) {
       setEvent(cachedEvent);
       setIsChecking(false);
-      // We still do a background refresh to be safe
     }
 
     let cancelled = false;
@@ -120,7 +119,7 @@ export default function ScannerClient() {
     return () => { cancelled = true; };
   }, [cachedEvent, eventId, authLoading, session]);
 
-  // Load persistent history from sessionStorage
+  // History Persistence
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(`scanner_history_${eventId}`);
@@ -128,8 +127,6 @@ export default function ScannerClient() {
         const parsed = JSON.parse(saved);
         const historyItems = parsed.map((item: any) => ({ ...item, time: new Date(item.time) }));
         setHistory(historyItems);
-        
-        // Populate attendee cache from history to prevent double scans after reload
         historyItems.forEach((item: HistoryItem) => {
           if (item.status === "success" || item.status === "already_present") {
             attendeeCacheRef.current.set(item.qrData, { name: item.name || "Attendee", status: "already_present" });
@@ -139,19 +136,19 @@ export default function ScannerClient() {
     } catch {}
   }, [eventId]);
 
-  // Save history to sessionStorage
   useEffect(() => {
     if (history.length > 0) {
       sessionStorage.setItem(`scanner_history_${eventId}`, JSON.stringify(history));
     }
   }, [history, eventId]);
 
-  // Scanner Lifecycle
+  // Lifecycle
   useEffect(() => {
     scannerRef.current = getScanner();
     void scannerRef.current.checkPermission().then(setPermission);
     return () => {
       void scannerRef.current?.stop();
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
     };
   }, []);
 
@@ -179,6 +176,14 @@ export default function ScannerClient() {
       oscillator.stop(audioCtx.currentTime + (type === "success" ? 0.15 : 0.3));
     } catch (e) {}
   }, [isNative]);
+
+  const showFeedback = (item: HistoryItem, duration = 4000) => {
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    setLastScanResult(item);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setLastScanResult(null);
+    }, duration);
+  };
 
   const processScan = async (scanResult: ScannerResult) => {
     if (!session?.access_token || !event) return;
@@ -208,8 +213,7 @@ export default function ScannerClient() {
     if (isLocallyPresent) {
        void triggerFeedback("warning");
        const item: HistoryItem = { id: Math.random().toString(), qrData: qrCodeData, name: optimisticName, status: "already_present", time: new Date(), message: "Already scanned" };
-       setLastScanResult(item);
-       setTimeout(() => setLastScanResult(prev => prev?.id === item.id ? null : prev), 4000);
+       showFeedback(item);
        return;
     }
 
@@ -220,7 +224,7 @@ export default function ScannerClient() {
     const newSuccessItem: HistoryItem = { id: historyId, qrData: qrCodeData, name: optimisticName, status: "success", time: new Date(), message: "Syncing..." };
     
     setHistory(prev => [newSuccessItem, ...prev].slice(0, 50)); 
-    setLastScanResult(newSuccessItem);
+    showFeedback(newSuccessItem);
     
     const requestBody = {
       qrCodeData,
@@ -241,13 +245,12 @@ export default function ScannerClient() {
 
       attendeeCacheRef.current.set(qrCodeData, { name: finalName, status: "already_present" });
 
-      const updatedItem: HistoryItem = { ...newSuccessItem, name: finalName, status: isAlreadyPresent ? "already_present" : "success", message: isAlreadyPresent ? "Already marked present" : "Attendance marked" };
+      const updatedItem: HistoryItem = { ...newSuccessItem, name: finalName, status: isAlreadyPresent ? "already_present" : "success", message: isAlreadyPresent ? "Attendance confirmed" : "Attendance marked" };
       
       setHistory(prev => prev.map(item => item.id === historyId ? updatedItem : item));
-      setLastScanResult(prev => prev?.id === historyId ? updatedItem : prev);
+      if (lastScanResult?.id === historyId) setLastScanResult(updatedItem);
       
       if (isAlreadyPresent) void triggerFeedback("warning");
-      setTimeout(() => setLastScanResult(prev => prev?.id === historyId ? null : prev), 4000);
     } catch (err: any) {
       attendeeCacheRef.current.delete(qrCodeData);
       cooldownMapRef.current.set(qrCodeData, 0); 
@@ -255,8 +258,7 @@ export default function ScannerClient() {
       void triggerFeedback("error");
       const errorItem: HistoryItem = { ...newSuccessItem, status: "error", message: errMsg };
       setHistory(prev => prev.map(item => item.id === historyId ? errorItem : item));
-      setLastScanResult(prev => prev?.id === historyId ? errorItem : prev);
-      setTimeout(() => setLastScanResult(prev => prev?.id === historyId ? null : prev), 5000);
+      if (lastScanResult?.id === historyId) setLastScanResult(errorItem);
     }
   };
 
@@ -272,8 +274,8 @@ export default function ScannerClient() {
       }
       await scannerRef.current.start(videoRef.current, (result) => void processScan(result));
       setIsScanning(true);
+      document.body.classList.add('scanner-mode-active');
     } catch (err: any) {
-      console.error("[Scanner] Start failed:", err);
       setIsScanning(false);
       setScannerError(err.message || "Camera access required");
     }
@@ -282,13 +284,14 @@ export default function ScannerClient() {
   const stopScanner = async () => {
     await scannerRef.current?.stop();
     setIsScanning(false);
+    document.body.classList.remove('scanner-mode-active');
   };
 
   if (authLoading || (isChecking && !event)) return <LoadingScreen />;
 
   if (!event || error) {
     return (
-      <div className="pwa-page px-4 pt-[calc(var(--nav-height)+var(--safe-top)+16px)]">
+      <div className="pwa-page px-4 pt-[calc(var(--nav-height)+var(--safe-top)+16px)] bg-slate-50">
         <div className="mx-auto max-w-[420px] card p-8 text-center space-y-4">
           <AlertTriangleIcon size={48} className="mx-auto text-red-500" />
           <h1 className="text-xl font-bold">Access Denied</h1>
@@ -300,37 +303,35 @@ export default function ScannerClient() {
   }
 
   return (
-    <div className={`scanner-page-bg min-h-screen pb-24 pt-[calc(var(--nav-height)+var(--safe-top)+16px)] ${isScanning && isNative ? 'barcode-scanner-active' : ''}`}>
-      <div className="mx-auto max-w-[420px] px-4 space-y-5">
-        
-        {/* Unified Header */}
-        <div className="flex items-center justify-between">
-          <Link href="/volunteer" className="back-btn"><ArrowLeftIcon size={18} /></Link>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700">
-            <ShieldCheckIcon size={14} />
-            <span className="text-[12px] font-bold">Authorized</span>
+    <div className={`pwa-page ${isScanning ? 'scanner-mode-active' : 'bg-slate-50'}`}>
+      
+      {/* Premium Floating Header */}
+      <header className="scanner-header-glass">
+        <button onClick={() => isScanning ? stopScanner() : router.replace("/volunteer")} className="p-2 -ml-2 text-white/80 active:scale-95 transition-transform">
+          <ArrowLeftIcon size={20} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-sm font-black text-white truncate leading-tight">{event.title}</h1>
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className={`status-indicator ${isScanning ? 'text-emerald-400' : 'text-slate-400'}`} style={{ color: 'currentColor' }} />
+            <span className="text-[10px] font-bold text-white/60 tracking-wider uppercase">
+              {isScanning ? 'Live Scanner' : 'Scanner Ready'}
+            </span>
           </div>
         </div>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+          <ShieldCheckIcon size={14} />
+          <span className="text-[10px] font-black uppercase tracking-tight">Verified</span>
+        </div>
+      </header>
 
-        {/* Event Banner */}
-        <section className="card bg-[var(--color-primary-dark)] text-white p-5 border-none shadow-primary">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-              <QrCodeIcon size={24} />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg font-black truncate">{event.title}</h1>
-              <p className="text-xs text-blue-200">Scanner active • Keep steady</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Scanner Viewport */}
-        <div className="scanner-viewport-container">
-          {/* On Web: Video element. On Native: Hidden (WebView made transparent) */}
+      <div className="mx-auto max-w-[420px] px-4 space-y-6 pt-[calc(var(--nav-height)+var(--safe-top)+40px)]">
+        
+        {/* Immersive Viewport */}
+        <section className={`scanner-viewport-premium ${isScanning ? 'scanning-active' : ''}`}>
           <video
             ref={videoRef}
-            className={`w-full h-full object-cover ${isNative ? 'opacity-0' : 'opacity-100'}`}
+            className={`w-full h-full object-cover transition-opacity duration-500 ${isNative ? 'opacity-0' : 'opacity-100'}`}
             muted
             playsInline
           />
@@ -339,114 +340,126 @@ export default function ScannerClient() {
             {!isScanning && (
               <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-900/90 text-white px-8 text-center"
+                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-900/80 text-white px-8 text-center backdrop-blur-sm"
               >
-                <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-4">
-                  <CameraIcon size={32} className="text-white/70" />
+                <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-6 border border-white/20 shadow-2xl">
+                  <CameraIcon size={36} className="text-white" />
                 </div>
-                <h3 className="font-bold">Scanner Ready</h3>
-                <p className="text-xs text-white/60 mt-2 leading-relaxed">
-                  Position the QR code within the frame to automatically check in the attendee.
+                <h3 className="text-lg font-black tracking-tight">Initialize Camera</h3>
+                <p className="text-xs text-white/60 mt-2 leading-relaxed max-w-[200px]">
+                  Align ticket QR code within the illuminated guides
                 </p>
+                <button onClick={startScanner} className="mt-8 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full font-bold text-sm shadow-xl transition-all active:scale-95">
+                  Activate Scanner
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Unified Overlay (Laser & Corners) */}
+          {/* New Premium Guides */}
           {isScanning && (
-            <div className="scanner-overlay-unified">
-              <div className="scanner-corner-tl scanner-frame-corner" />
-              <div className="scanner-corner-tr scanner-frame-corner" />
-              <div className="scanner-corner-bl scanner-frame-corner" />
-              <div className="scanner-corner-br scanner-frame-corner" />
-              <div className="scanner-laser-line" />
-            </div>
+            <>
+              <div className="scanner-guide-corner guide-tl" />
+              <div className="scanner-guide-corner guide-tr" />
+              <div className="scanner-guide-corner guide-bl" />
+              <div className="scanner-guide-corner guide-br" />
+              <div className="scanner-laser-premium" />
+            </>
           )}
-        </div>
 
-        {/* Error Messages */}
-        <AnimatePresence>
           {scannerError && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="card bg-red-50 border-red-100 p-4">
-              <div className="flex gap-3 text-red-700 text-sm font-semibold">
-                <AlertTriangleIcon size={18} className="shrink-0" />
-                <p>{scannerError}</p>
-              </div>
-            </motion.div>
+             <div className="absolute bottom-6 left-6 right-6 z-40 p-4 bg-red-500/90 backdrop-blur-md rounded-2xl border border-red-400/50 flex items-center gap-3 text-white">
+                <AlertTriangleIcon size={20} className="shrink-0" />
+                <p className="text-xs font-bold leading-tight">{scannerError}</p>
+             </div>
           )}
-        </AnimatePresence>
+        </section>
 
-        {/* Controls */}
-        <div className="flex gap-3">
-          {!isScanning ? (
-            <Button variant="primary" fullWidth size="lg" onClick={startScanner} leftIcon={<CameraIcon size={20} />}>
-              Start Scanning
-            </Button>
-          ) : (
-            <Button variant="danger" fullWidth size="lg" onClick={stopScanner} leftIcon={<XIcon size={20} />}>
-              Stop Scanner
-            </Button>
-          )}
-        </div>
+        {/* Controls (Hidden when scanning for maximum immersion) */}
+        {!isScanning && (
+          <div className="grid grid-cols-2 gap-3 stagger">
+            <div className="card p-4 bg-white shadow-sm flex flex-col items-center justify-center text-center">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Scans</span>
+              <span className="text-2xl font-black text-slate-900">{history.length}</span>
+            </div>
+            <div className="card p-4 bg-white shadow-sm flex flex-col items-center justify-center text-center">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</span>
+              <span className="text-sm font-black text-emerald-600 uppercase">Online</span>
+            </div>
+          </div>
+        )}
 
-        {/* Recent Scans List */}
-        <div className="space-y-3">
+        {isScanning && (
+          <div className="flex justify-center">
+             <button onClick={stopScanner} className="px-8 py-3 bg-white/10 backdrop-blur-xl border border-white/20 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all">
+               Deactivate
+             </button>
+          </div>
+        )}
+
+        {/* Pro History Ledger */}
+        <section className={`space-y-4 pb-12 transition-all duration-500 ${isScanning ? 'opacity-20 blur-sm scale-95' : 'opacity-100'}`}>
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-extrabold flex items-center gap-2">
-              <CheckCircleIcon size={16} className="text-[var(--color-text-muted)]" />
-              Recent Scans
-            </h2>
-            <span className="text-[11px] font-bold text-[var(--color-text-light)]">Last {history.length}</span>
+            <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Attendance Ledger</h2>
+            <div className="h-px flex-1 mx-4 bg-slate-200" />
+            <span className="text-[10px] font-bold text-slate-400">{history.length} records</span>
           </div>
 
-          <div className="space-y-2">
+          <div className="scanner-ledger space-y-2">
             {history.length === 0 ? (
-              <div className="card p-8 text-center border-dashed border-2 bg-transparent opacity-50">
-                <p className="text-xs font-semibold text-[var(--color-text-muted)]">No scans yet in this session</p>
+              <div className="py-12 text-center opacity-30">
+                <QrCodeIcon size={40} className="mx-auto mb-3" />
+                <p className="text-xs font-bold">Waiting for scans...</p>
               </div>
             ) : (
               history.map((item) => (
-                <div key={item.id} className="scanner-history-item bg-white p-3 rounded-2xl flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                <div key={item.id} className="ledger-item group">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
                     item.status === 'success' ? 'bg-emerald-100 text-emerald-600' :
                     item.status === 'already_present' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
                   }`}>
-                    {item.status === 'error' ? <XIcon size={18} /> : <CheckCircleIcon size={18} />}
+                    {item.status === 'error' ? <XIcon size={18} /> : 
+                     item.status === 'already_present' ? <ShieldCheckIcon size={18} /> : <CheckCircleIcon size={18} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{item.name}</p>
-                    <p className="text-[11px] text-[var(--color-text-muted)] truncate">{item.message}</p>
+                    <p className="text-sm font-black text-slate-900 truncate group-active:text-slate-600">{item.name}</p>
+                    <p className="text-[11px] font-bold text-slate-400 truncate mt-0.5">{item.message}</p>
                   </div>
-                  <div className="text-[10px] font-bold text-[var(--color-text-light)]">
+                  <div className="text-[10px] font-black text-slate-400 tabular-nums">
                     {item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Unified Instant Feedback Toast */}
+      {/* Premium Floating Feedback Bubble */}
       <AnimatePresence>
         {lastScanResult && (
-          <div className="scanner-toast">
+          <div className="scanner-feedback-card">
             <motion.div 
-              initial={{ y: -20, opacity: 0, scale: 0.9 }} 
+              initial={{ y: 60, opacity: 0, scale: 0.8 }} 
               animate={{ y: 0, opacity: 1, scale: 1 }} 
-              exit={{ y: -20, opacity: 0, scale: 0.9 }}
-              className={`flex items-center gap-3 px-5 py-3 rounded-2xl shadow-lg border backdrop-blur-md ${
-                lastScanResult.status === 'success' ? 'bg-emerald-500/95 border-emerald-400 text-white' :
-                lastScanResult.status === 'already_present' ? 'bg-amber-500/95 border-amber-400 text-white' :
-                'bg-red-500/95 border-red-400 text-white'
+              exit={{ y: 20, opacity: 0, scale: 0.8 }}
+              className={`feedback-bubble ${
+                lastScanResult.status === 'success' ? 'feedback-success' :
+                lastScanResult.status === 'already_present' ? 'feedback-warning' :
+                'feedback-error'
               }`}
             >
-              <div className="bg-white/20 p-1.5 rounded-lg">
-                {lastScanResult.status === 'error' ? <XIcon size={18} /> : <CheckCircleIcon size={18} />}
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                lastScanResult.status === 'success' ? 'bg-emerald-500 text-white' :
+                lastScanResult.status === 'already_present' ? 'bg-amber-500 text-white' :
+                'bg-red-500 text-white'
+              }`}>
+                {lastScanResult.status === 'error' ? <XIcon size={24} /> : 
+                 lastScanResult.status === 'already_present' ? <AlertTriangleIcon size={24} /> : <CheckCircleIcon size={24} />}
               </div>
-              <div>
-                <p className="text-[14px] font-black leading-none">{lastScanResult.name}</p>
-                <p className="text-[11px] font-bold opacity-90 mt-0.5">{lastScanResult.message}</p>
+              <div className="min-w-0">
+                <p className="text-[15px] font-black leading-tight text-slate-900 truncate">{lastScanResult.name}</p>
+                <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-tight">{lastScanResult.message}</p>
               </div>
             </motion.div>
           </div>
@@ -455,3 +468,4 @@ export default function ScannerClient() {
     </div>
   );
 }
+
