@@ -1,5 +1,6 @@
 "use client";
 
+import useSWR from "swr";
 import React, { useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -41,6 +42,19 @@ function parseJsonField<T>(raw: any): T[] {
   if (typeof raw === "string") { try { return parseJsonField(JSON.parse(raw)); } catch { return []; } }
   return [];
 }
+
+const eventFetcher = async (url: string) => {
+  const d = await apiRequest(url) as any;
+  if (d && typeof d === 'object' && 'event' in d) return d.event;
+  return d;
+};
+
+const regFetcher = async (url: string) => {
+  const r = await apiRequest(url) as any;
+  const data = Array.isArray(r) ? r : (r?.registrations ?? r?.events ?? []);
+  const registrations = Array.isArray(data) ? data : [];
+  return registrations.map((item: any) => item?.event_id || item?.id || item?.event?.event_id || item?.event?.id).filter(Boolean).map((id: any) => String(id));
+};
 
 const AccordionSection = ({ 
   id, 
@@ -84,10 +98,6 @@ export default function EventDetailClient({ eventId }: { eventId: string }) {
   const { userData, isLoading: authLoading } = useAuth();
   const { pushStatus, triggerPrompt } = useNotifications();
 
-  const [event, setEvent] = useState<FetchedEvent | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [registeredIds, setRegisteredIds] = useState<string[]>([]);
   const [isRegistering, setIsRegistering] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -97,35 +107,32 @@ export default function EventDetailClient({ eventId }: { eventId: string }) {
 
   useEffect(() => { if (regError && errorRef.current) { errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); errorRef.current.focus(); } }, [regError]);
 
-  useEffect(() => {
-    if (!eventId) { setError("Invalid event ID"); setLoading(false); return; }
-    if (ctxLoading) return;
-    const found = allEvents.find((e) => e.event_id === eventId);
-    if (found) { setEvent(found); setLoading(false); return; }
-    apiRequest<any>(`/events/${eventId}`)
-      .then((d) => {
-        if (d && typeof d === 'object' && 'event' in d) setEvent(d.event);
-        else setEvent(d);
-      })
-      .catch(() => setError("Event not found"))
-      .finally(() => setLoading(false));
-  }, [eventId, allEvents, ctxLoading]);
+  const foundEvent = allEvents.find((e) => e.event_id === eventId);
+  const { data: fetchedEvent, error: fetchError, isLoading: fetchingEvent } = useSWR(
+    !foundEvent && eventId && !ctxLoading ? `/events/${eventId}` : null,
+    eventFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  );
 
-  useEffect(() => {
-    if (!userData || authLoading) return;
-    const registerNumber = userData.organization_type === "outsider" ? userData.visitor_id || userData.register_number || "" : userData.register_number || "";
-    if (!registerNumber && !userData.email) return;
-    const params = new URLSearchParams();
-    if (registerNumber) params.set("registerNumber", String(registerNumber));
-    if (userData.email) params.set("email", userData.email);
-    apiRequest<any>(`/registrations?${params.toString()}`)
-      .then((r) => (Array.isArray(r) ? r : (r as any)?.registrations ?? (r as any)?.events ?? []))
-      .then((data) => {
-        const registrations = Array.isArray(data) ? data : [];
-        setRegisteredIds(registrations.map((item: any) => item?.event_id || item?.id || item?.event?.event_id || item?.event?.id).filter(Boolean).map((id: any) => String(id)));
-      })
-      .catch(() => {});
-  }, [userData, authLoading]);
+  const event = foundEvent || fetchedEvent;
+  const loading = ctxLoading || fetchingEvent;
+  const error = (!event && !loading) ? "Event not found" : null;
+
+  const regParams = new URLSearchParams();
+  if (userData?.organization_type === "outsider" && (userData.visitor_id || userData.register_number)) {
+    regParams.set("registerNumber", String(userData.visitor_id || userData.register_number));
+  } else if (userData?.register_number) {
+    regParams.set("registerNumber", String(userData.register_number));
+  }
+  if (userData?.email) regParams.set("email", userData.email);
+
+  const shouldFetchReg = !!userData && !authLoading && (regParams.has("registerNumber") || regParams.has("email"));
+
+  const { data: registeredIds = [], mutate: mutateRegisteredIds } = useSWR(
+    shouldFetchReg ? `/registrations?${regParams.toString()}` : null,
+    regFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30000 }
+  );
 
   const handleRegister = async () => {
     if (!event) return;
@@ -154,13 +161,13 @@ export default function EventDetailClient({ eventId }: { eventId: string }) {
       });
 
       setShowSuccess(true);
-      setRegisteredIds((p) => (p.includes(event.event_id) ? p : [...p, event.event_id]));
+      mutateRegisteredIds((p: string[] | undefined) => (p || []).includes(event.event_id) ? (p || []) : [...(p || []), event.event_id], false);
       if (pushStatus === "not_requested") {
         triggerPrompt();
       }
     } catch (err: any) {
       if (err.message?.includes("409") || err.code === "ALREADY_REGISTERED") {
-        setRegisteredIds((p) => (p.includes(event.event_id) ? p : [...p, event.event_id]));
+        mutateRegisteredIds((p: string[] | undefined) => (p || []).includes(event.event_id) ? (p || []) : [...(p || []), event.event_id], false);
         setRegError(null);
       } else {
         setRegError(err.message || "Registration failed.");

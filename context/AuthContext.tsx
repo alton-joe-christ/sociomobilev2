@@ -46,7 +46,21 @@ function restoreSessionFromLS(): Session | null {
 function persistUserDataToLS(user: UserData | null) {
   try {
     if (user) {
-      localStorage.setItem(LS_USER_KEY, JSON.stringify(user));
+      // Lightweight Local Profile Snapshot Optimization
+      // Do not store large nested arrays like volunteerEvents to save parse time.
+      const snapshot: Partial<UserData> = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatar_url: user.avatar_url,
+        campus: user.campus,
+        roles: user.roles,
+        department: user.department,
+        organization_type: user.organization_type,
+        visitor_id: user.visitor_id,
+        register_number: user.register_number,
+      };
+      localStorage.setItem(LS_USER_KEY, JSON.stringify(snapshot));
     } else {
       localStorage.removeItem(LS_USER_KEY);
     }

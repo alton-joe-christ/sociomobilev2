@@ -255,6 +255,9 @@ export async function apiFetch<T = any>(
       const rawBody = await response.text();
       const parsedBody = parseBody(rawBody, response.headers.get("content-type"));
 
+      const isFromCache = response.headers?.get("x-cache") === "HIT" || response.headers?.get("cf-cache-status") === "HIT";
+      console.log(`🔍 [CacheVerify] ${method} ${endpoint} | Cache: ${isFromCache ? "HIT" : "MISS"} | Status: ${response.status} | Duration: ${durationMs}ms`);
+
       console.log("🔍 [NetworkDebug] Response", {
         url,
         method,

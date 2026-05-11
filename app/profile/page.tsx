@@ -1,5 +1,6 @@
 "use client";
 
+import useSWR from "swr";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,13 +36,47 @@ import type { FetchedEvent } from "@/context/EventContext";
 import { getActiveVolunteerEvents } from "@/lib/volunteerAccess";
 import { apiRequest } from "@/lib/apiClient";
 
+const getStatus = (dateStr: string) => {
+  if (!dateStr) return "Upcoming";
+  const eventDate = new Date(dateStr);
+  const now = new Date();
+  eventDate.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+  if (eventDate < now) return "Past";
+  if (eventDate.getTime() === now.getTime()) return "Today";
+  return "Upcoming";
+};
+
+const regFetcher = async (url: string) => {
+  const res = await apiRequest(url, { cache: "no-store" }) as any;
+  if (!res) return [];
+  const regs = Array.isArray(res) ? res : res.registrations ?? res ?? [];
+  return (Array.isArray(regs) ? regs : [])
+    .map((r: any) => ({
+      event_id: String(r?.event_id || r?.id || r?.event?.event_id || r?.event?.id || ""),
+      registration_id: String(
+        r?.registration_id ||
+        r?.id ||
+        r?.event?.registration_id ||
+        r?.event?.id ||
+        ""
+      ),
+      title: r?.event?.title || r?.title || r?.name || "",
+      raw_date: r?.event?.event_date || r?.event_date || r?.date || "",
+      department: r?.event?.organizing_dept || r?.organizing_dept || r?.department || "",
+      status: getStatus(r?.event?.event_date || r?.event_date || r?.date || ""),
+      event: r?.event,
+    }))
+    .filter((r: Registration) => Boolean(r.event_id) && Boolean(r.registration_id));
+};
+
 interface Registration {
   event_id: string;
   registration_id: string;
   title?: string;
   raw_date?: string;
   department?: string;
-  status?: "upcoming" | "completed";
+  status?: string;
   event?: FetchedEvent;
 }
 
@@ -49,8 +84,7 @@ export default function ProfilePage() {
   const { userData, isLoading, signOut, session, refreshUserData } = useAuth();
   const { allEvents } = useEvents();
   const router = useRouter();
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [regLoading, setRegLoading] = useState(true);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
@@ -79,16 +113,6 @@ export default function ProfilePage() {
     });
   };
 
-  const getStatus = (rawDate?: string): "upcoming" | "completed" => {
-    if (!rawDate) return "upcoming";
-    const eventDay = new Date(rawDate);
-    if (Number.isNaN(eventDay.getTime())) return "upcoming";
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    eventDay.setHours(0, 0, 0, 0);
-    return eventDay < today ? "completed" : "upcoming";
-  };
-
   const isEventSoon = (rawDate?: string) => {
     if (!rawDate) return false;
     const eventStart = new Date(`${rawDate}T00:00:00`);
@@ -96,68 +120,25 @@ export default function ProfilePage() {
     return eventStart.getTime() - Date.now() < 24 * 60 * 60 * 1000;
   };
 
-  useEffect(() => {
-    if (!userData) {
-      setRegLoading(false);
-      return;
+  const registerNumber =
+    userData?.organization_type === "outsider"
+      ? userData.visitor_id || userData.register_number || ""
+      : userData?.register_number || "";
+
+  const params = new URLSearchParams();
+  if (registerNumber) params.set("registerNumber", registerNumber);
+  if (userData?.email) params.set("email", userData.email);
+
+  const shouldFetch = !!userData && (!!registerNumber || !!userData.email);
+
+  const { data: registrations = [], isLoading: regLoading, mutate: mutateRegistrations } = useSWR(
+    shouldFetch ? `/registrations?${params.toString()}` : null,
+    regFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,
     }
-
-    const registerNumber =
-      userData.organization_type === "outsider"
-        ? userData.visitor_id || userData.register_number || ""
-        : userData.register_number || "";
-
-    if (!registerNumber && !userData.email) {
-      setRegLoading(false);
-      return;
-    }
-
-    const cacheKey = `regs_${registerNumber || userData.email}`;
-    // Always clear cache to ensure fresh data on each profile load
-    sessionStorage.removeItem(cacheKey);
-
-    (async () => {
-      try {
-        const params = new URLSearchParams();
-        if (registerNumber) params.set("registerNumber", registerNumber);
-        if (userData.email) params.set("email", userData.email);
-
-        const res = (await apiRequest(`/registrations?${params.toString()}`, {
-          cache: "no-store",
-        })) as any;
-        if (res) {
-          const regs = Array.isArray(res) ? res : res.registrations ?? res ?? [];
-          const normalized = (Array.isArray(regs) ? regs : [])
-            .map((r: any) => ({
-              event_id: String(r?.event_id || r?.id || r?.event?.event_id || r?.event?.id || ""),
-              registration_id: String(
-                r?.registration_id ||
-                r?.id ||
-                r?.event?.registration_id ||
-                r?.event?.id ||
-                ""
-              ),
-              title: r?.event?.title || r?.title || r?.name || "",
-              raw_date: r?.event?.event_date || r?.event_date || r?.date || "",
-              department: r?.event?.organizing_dept || r?.organizing_dept || r?.department || "",
-              status: getStatus(r?.event?.event_date || r?.event_date || r?.date || ""),
-              event: r?.event,
-            }))
-            .filter((r: Registration) => Boolean(r.event_id) && Boolean(r.registration_id));
-          setRegistrations(normalized);
-          sessionStorage.setItem(cacheKey, JSON.stringify(normalized));
-        } else {
-          console.error("Failed to fetch registrations");
-          setRegistrations([]);
-        }
-      } catch (err) {
-        console.error("Error fetching registrations:", err);
-        setRegistrations([]);
-      }
-      setRegLoading(false);
-    })();
-  }, [userData, session]);
-
+  );
 
   // Deduplicate registrations by event_id and enrich with event data
   const uniqueRegistrations = useMemo(() => {
@@ -209,7 +190,7 @@ export default function ProfilePage() {
         cache: "no-store",
       });
 
-      setRegistrations((prev) => prev.filter((r) => r.registration_id !== registration.registration_id));
+      mutateRegistrations((prev) => (prev || []).filter((r) => r.registration_id !== registration.registration_id), false);
     } catch {
       alert("Network error. Please try again.");
     } finally {
@@ -572,8 +553,6 @@ export default function ProfilePage() {
           </Button>
         )}
       </div>
-
-      {/* End of main profile content */}
 
       {isEditingName && (
         <div className="modal-backdrop">

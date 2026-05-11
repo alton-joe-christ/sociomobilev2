@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -14,34 +14,17 @@ import { shareEvent } from "@/lib/share";
 
 import { apiRequest } from "@/lib/apiClient";
 
+const fetcher = async (url: string) => await apiRequest(url) as any;
+
 export default function FestDetailClient({ festId }: { festId: string }) {
   const router = useRouter();
   const { allEvents, isLoading: ctxLoading } = useEvents();
 
-  const [fest, setFest] = useState<Fest | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!festId) {
-      setLoading(false);
-      return;
-    }
-
-    // Fests are not globally in context, so we fetch directly
-    const fetchFest = async () => {
-      try {
-        const d = await apiRequest(`/fests/${festId}`);
-        setFest(d as any);
-      } catch {
-        setError("Fest not found");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchFest();
-  }, [festId, allEvents]);
+  const { data: fest, error, isLoading: loading } = useSWR(
+    festId ? `/fests/${festId}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 120000 }
+  );
 
   if (loading || ctxLoading) {
     return (
