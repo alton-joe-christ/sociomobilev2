@@ -577,7 +577,15 @@ export const ChevronLeftIcon = (props: IconProps) => (
   <IconBase {...props}>
     <path d="m15 18-6-6 6-6" />
   </IconBase>
-);export const ZapIcon = (props: IconProps) => (
+);export const HistoryIcon = (props: IconProps) => (
+  <IconBase {...props}>
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l4 2" />
+  </IconBase>
+);
+
+export const ZapIcon = (props: IconProps) => (
   <IconBase {...props}>
     <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
   </IconBase>
