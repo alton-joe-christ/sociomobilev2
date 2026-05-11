@@ -249,17 +249,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout protection
 
     try {
-      const res = await apiRequest(
-        `/users/me`,
-        {
-          cache: "no-store",
-          signal: controller.signal
-        }
-      );
-      console.log(`[API] response for /users/me (${email}), platform: ${platform}`);
+      const [meRes, volRes] = await Promise.allSettled([
+        apiRequest(`/users/me`, { cache: "no-store", signal: controller.signal }),
+        apiRequest(`/volunteer/events`, { cache: "no-store", signal: controller.signal })
+      ]);
+      
       clearTimeout(timeoutId);
 
-      const data = res as any;
+      if (meRes.status === "rejected") {
+        throw meRes.reason;
+      }
+
+      const data = meRes.value as any;
       console.log(`🔍 [AuthDebug] fetchUserData: SUCCESS. Data keys: ${Object.keys(data).join(", ")}`);
       const fetchedUser = data.user ?? data;
       fetchedUser.roles = fetchedUser.roles ?? data.roles ?? {};
@@ -279,15 +280,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : undefined;
 
       if (volEvents === undefined) {
-        try {
-          console.log(`[API] endpoint: /volunteer/events, platform: ${Capacitor.getPlatform()}`);
-          const volRes = (await apiRequest(`/volunteer/events`, {
-            cache: "no-store",
-            signal: AbortSignal.timeout(8000)
-          })) as any;
-          volEvents = volRes.events || [];
-        } catch (err) {
-          console.error("Failed to fetch volunteer events during /me fetch", err);
+        if (volRes.status === "fulfilled") {
+          volEvents = (volRes.value as any).events || [];
+        } else {
+          console.error("Failed to fetch volunteer events during /me fetch", volRes.reason);
           volEvents = [];
         }
       }
@@ -777,12 +773,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshUserData
       }}
     >
-      {!isAuthReady && isLoading && <div className="fixed inset-0 z-[10000] bg-white flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm font-medium text-gray-500">Authenticating...</p>
-        </div>
-      </div>}
       {children}
 
       {/* 🛠️ [DEBUG OVERLAY] - Temporary floating state indicator */}
