@@ -27,5 +27,6 @@ next-env.d.ts
 
 # security and reports
 SECURITY_REPORT.md
+QA_REPORT.md
 full_lint.txt
 lint_errors.txt

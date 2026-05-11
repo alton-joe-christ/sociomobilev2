@@ -32,6 +32,7 @@ import {
   ShareIcon,
 } from "@/components/icons";
 import { Button } from "@/components/Button";
+import { sanitizeUrl } from "@/lib/sanitizeUrl";
 import { shareEvent } from "@/lib/share";
 
 function parseJsonField<T>(raw: any): T[] {
@@ -509,11 +510,6 @@ export default function EventDetailClient({ eventId }: { eventId: string }) {
             <p className="text-center text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mt-2">Registration is per team</p>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-div>
       </div>
     </div>
   );

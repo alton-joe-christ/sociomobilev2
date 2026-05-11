@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ArrowLeftIcon, CheckCircleIcon, AlertCircleIcon, Loader2Icon, UserIcon, HashIcon, MailIcon, UsersIcon, MessageCircleIcon } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { apiRequest } from "@/lib/apiClient";
+import { sanitizeUrl } from "@/lib/sanitizeUrl";
 
 interface Teammate {
   name: string;
@@ -377,11 +378,6 @@ export default function RegisterClient({ eventId }: { eventId: string }) {
         >
           {alreadyRegistered ? "Registered" : "Confirm Registration"}
         </Button>
-      </form>
-    </div>
-  );
-}
-
       </form>
     </div>
   );
