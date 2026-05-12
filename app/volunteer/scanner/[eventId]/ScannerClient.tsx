@@ -288,7 +288,22 @@ export default function ScannerClient() {
       setIsScanning(true);
     } catch (err: any) {
       setIsScanning(false);
-      setCameraError(err.message || "Camera access required");
+      console.error(`[FatalScannerTrace] Scanner start error:`, err);
+      
+      const rawMsg = (err.message || "").toLowerCase();
+      let safeMsg = "Camera access required";
+      
+      if (rawMsg.includes("permission") || rawMsg.includes("denied")) {
+        safeMsg = "Camera permission denied. Please enable it in settings.";
+      } else if (rawMsg.includes("not supported") || rawMsg.includes("unsupported")) {
+        safeMsg = "Scanner not supported on this device.";
+      } else if (rawMsg.includes("installed") || rawMsg.includes("module")) {
+        safeMsg = "Initializing scanner..."; // Usually harmless transient state
+      } else if (rawMsg.trim() !== "") {
+        safeMsg = "Failed to initialize scanner. Please try again.";
+      }
+
+      setCameraError(safeMsg);
       await stopScanner();
     }
   }, [isScanning, processScan, stopScanner]);

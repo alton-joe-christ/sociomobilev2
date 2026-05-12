@@ -58,7 +58,7 @@ export default function ScannerError({
           Scanner encountered an error
         </h2>
         <p className="text-sm text-[var(--color-text-muted)] mb-6 break-words">
-          {error.message || "An unexpected issue occurred while initializing the camera or scanner."}
+          An unexpected issue occurred while initializing the camera or scanner. Please reload to try again.
         </p>
         
         <div className="space-y-3">

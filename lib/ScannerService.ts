@@ -134,7 +134,12 @@ class CapacitorScanner implements IScanner {
     try {
       // For Android: ensures the library is available on device
       if (Capacitor.getPlatform() === 'android') {
-        await BarcodeScanner.installGoogleBarcodeScannerModule();
+        try {
+          await BarcodeScanner.installGoogleBarcodeScannerModule();
+        } catch (installErr: any) {
+          // Silently handle native module installation messages (e.g. "already installed")
+          console.log('[CapacitorScanner] ML Kit module status:', installErr?.message || installErr);
+        }
       }
 
       // Start scanning
