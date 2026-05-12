@@ -31,9 +31,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [campusDismissed, setCampusDismissed] = useState(false);
   const [isNative, setIsNative] = useState(false);
 
-  useEffect(() => {
-    console.log(`[APPSHELL] State: user=${user?.email || "null"}, userData=${userData?.email || "null"}, isAuth=${isAuthenticated}`);
-  }, [user, userData, isAuthenticated]);
 
   useEffect(() => {
     // Check if dismissed recently — isCampusDismissedRecently is a pure

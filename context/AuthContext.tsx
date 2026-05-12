@@ -21,6 +21,8 @@ import { apiRequest } from "@/lib/apiClient";
 /* ── Local-storage helpers for PWA session persistence ── */
 const LS_SESSION_KEY = "socio_pwa_session";
 const LS_USER_KEY = "socio_pwa_user_data";
+// Set on first successful user provision — prevents redundant POST /users on every session restore
+const USER_PROVISIONED_KEY = "socio_user_provisioned";
 
 function persistSessionToLS(session: Session | null) {
   try {
@@ -200,30 +202,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // isAuthenticated is derived — no state, no extra rerender
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [authTimings, setAuthTimings] = useState({ start: 0, sessionReady: 0, profileReady: 0 });
-
-  // 🔍 [AuthDebug] Trace all critical state changes
-  useEffect(() => {
-    console.log(`🔍 [AuthRaceDebug] ${Date.now()} contextState: isLoading=${isLoading}, isAuthReady=${isAuthReady}, user=${user?.email || "null"}, userData=${userData?.name || "null"}, isAuth=${isAuthenticated}`);
-  }, [isLoading, isAuthReady, user, userData, isAuthenticated]);
-
-  useEffect(() => {
-    if (isHydrated && isAuthReady) {
-      const total = Date.now() - authTimings.start;
-      console.log(`🚀 [PERF] Auth Flow Complete in ${total}ms. Session: ${authTimings.sessionReady - authTimings.start}ms, Profile: ${authTimings.profileReady - authTimings.sessionReady}ms`);
-    }
-  }, [isHydrated, isAuthReady, authTimings]);
-
-  // Ensure isAuthenticated is always in sync with user
-  useEffect(() => {
-    const isAuth = !!user;
-    if (isAuth !== isAuthenticated) {
-      console.log(`🔍 [AuthRaceDebug] ${Date.now()} Syncing isAuthenticated -> ${isAuth}`);
-      setIsAuthenticated(isAuth);
-    }
-  }, [user, isAuthenticated]);
+  // Timing tracked via ref — zero rerenders
+  const authTimingsRef = useRef({ start: 0, sessionReady: 0, profileReady: 0 });
   
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showOutsiderWarning, setShowOutsiderWarning] = useState(false);
@@ -386,22 +368,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: POST /users...`);
-        await apiRequest(`/users`, {
-          method: "POST",
-          body: JSON.stringify({
-            user: {
-              id: supaUser.id,
-              email,
-              name: fullName || email.split("@")[0],
-              avatar_url: supaUser.user_metadata?.avatar_url,
-              register_number: registerNumber,
-              course,
-            },
-          }),
-        });
+        const alreadyProvisioned =
+          typeof window !== "undefined" && localStorage.getItem(USER_PROVISIONED_KEY);
+        if (!alreadyProvisioned) {
+          console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: First provision — POST /users...`);
+          await apiRequest(`/users`, {
+            method: "POST",
+            body: JSON.stringify({
+              user: {
+                id: supaUser.id,
+                email,
+                name: fullName || email.split("@")[0],
+                avatar_url: supaUser.user_metadata?.avatar_url,
+                register_number: registerNumber,
+                course,
+              },
+            }),
+          });
+          if (typeof window !== "undefined") {
+            localStorage.setItem(USER_PROVISIONED_KEY, "1");
+          }
+        }
       } catch (err) {
         console.error("🔍 [AuthDebug] ensureUser: Setup error:", err);
+        // Don't set provisioned flag on failure — will retry next time
       }
 
       console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: Fetching profile...`);
@@ -409,7 +399,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (fetchedUser) {
         console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: SUCCESS`);
-        setAuthTimings(prev => ({ ...prev, profileReady: Date.now() }));
+        authTimingsRef.current.profileReady = Date.now();
         setIsAuthReady(true);
         maybeShowOutsiderWelcome(fetchedUser, supaUser.id);
       } else {
@@ -436,7 +426,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setUserData(fallbackUser);
         persistUserDataToLS(fallbackUser);
-        setAuthTimings(prev => ({ ...prev, profileReady: Date.now() }));
+        authTimingsRef.current.profileReady = Date.now();
         setIsAuthReady(true);
       }
       
@@ -525,7 +515,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log(`🔍 [AuthRaceDebug] ${Date.now()} [DeepLink] setSession SUCCESS for: ${data.user?.email}`);
             setSession(data.session);
             setUser(data.session.user);
-            setIsAuthenticated(true);
             persistSessionToLS(data.session);
             await ensureUser(data.session.user);
           }
@@ -541,7 +530,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log(`🔍 [AuthRaceDebug] ${Date.now()} [DeepLink] Exchange SUCCESS for: ${data.user?.email}`);
             setSession(data.session);
             setUser(data.session.user);
-            setIsAuthenticated(true);
             persistSessionToLS(data.session);
             await ensureUser(data.session.user);
           }
@@ -559,7 +547,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log(`🔍 [AuthRaceDebug] ${Date.now()} Bootstrap: Starting sequence...`);
       try {
-        setAuthTimings(prev => ({ ...prev, start: Date.now() }));
+        authTimingsRef.current.start = Date.now();
 
         // 1. Restore from LS Backup (OPTIMISTIC)
         const lsSession = restoreSessionFromLS();
@@ -570,12 +558,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(lsSession);
           setUser(lsSession.user);
           setUserData(lsUser);
-          setIsAuthenticated(true);
-          setAuthTimings(prev => ({ ...prev, sessionReady: Date.now() }));
-          // If we have a user name, we can consider auth "ready" for basic UI
+          authTimingsRef.current.sessionReady = Date.now();
+          // If we have a user name, mark auth ready for basic UI
           if (lsUser?.name) setIsAuthReady(true);
-          
-          // Unlock UI early if we have a session
+          // Unlock UI early
           setIsLoading(false);
           setIsHydrated(true);
         }
@@ -602,12 +588,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (s?.user?.email) {
           if (mounted) {
-            setAuthTimings(prev => ({ ...prev, sessionReady: Date.now() }));
+            authTimingsRef.current.sessionReady = Date.now();
             setSession(s);
             setUser(s.user);
             persistSessionToLS(s);
             scheduleTokenRefresh(s);
-            setIsAuthenticated(true);
             // Unlock UI if not already unlocked
             setIsLoading(false);
             setIsHydrated(true);
@@ -622,7 +607,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           persistSessionToLS(null);
           persistUserDataToLS(null);
           setUserData(null);
-          setIsAuthenticated(false);
         }
       } catch (err) {
         console.error("Auth bootstrap failed", err);
@@ -657,20 +641,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       scheduleTokenRefresh(s);
 
       if (s?.user?.email) {
-        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-           console.log(`🔍 [AuthRaceDebug] ${Date.now()} onAuthStateChange: ${event}. Hydrating profile...`);
-           await ensureUser(s.user);
-           if (mounted) {
-             setIsLoading(false);
-             setIsHydrated(true);
-             console.log(`🔍 [AuthRaceDebug] ${Date.now()} onAuthStateChange: Hydration complete.`);
-           }
+        if (event === "SIGNED_IN") {
+          // Fresh login — unlock UI immediately, hydrate profile in background
+          if (mounted) {
+            setIsLoading(false);
+            setIsHydrated(true);
+          }
+          void ensureUser(s.user);
+        } else if (event === "INITIAL_SESSION") {
+          // Session restore (every page load / app resume) — NEVER block UI
+          // bootstrap() has already unlocked the UI via LS restore.
+          // Just fire background hydration.
+          void ensureUser(s.user);
+          if (mounted) {
+            setIsLoading(false);
+            setIsHydrated(true);
+          }
         } else {
-           void ensureUser(s.user);
-           if (mounted) {
-             setIsLoading(false);
-             setIsHydrated(true);
-           }
+          void ensureUser(s.user);
+          if (mounted) {
+            setIsLoading(false);
+            setIsHydrated(true);
+          }
         }
       } else if (event === "SIGNED_OUT") {
         setUserData(null);
@@ -729,6 +721,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistSessionToLS(null);
     persistUserDataToLS(null);
   }, []);
+
+  // Derived — no state needed, no extra rerender
+  const isAuthenticated = !!user;
 
   const needsCampus =
     !isLoading &&
