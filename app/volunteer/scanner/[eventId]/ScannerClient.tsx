@@ -1,182 +1,205 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth, type VolunteerEvent } from "@/context/AuthContext";
 import LoadingScreen from "@/components/LoadingScreen";
-import { Button } from "@/components/Button";
-import { 
-  AlertTriangleIcon, 
-  ArrowLeftIcon, 
-  QrCodeIcon, 
-  ShieldCheckIcon,
-  CheckCircleIcon,
-  XIcon,
+import {
+  AlertTriangleIcon,
+  ArrowLeftIcon,
+  QrCodeIcon,
   CameraIcon,
-  RefreshCcwIcon,
-  HistoryIcon,
-  SearchIcon,
 } from "@/components/icons";
 import { getActiveVolunteerEvents } from "@/lib/volunteerAccess";
 import { apiRequest } from "@/lib/apiClient";
-import { getScanner, IScanner, ScannerResult, PermissionStatus } from "@/lib/ScannerService";
+import {
+  getScanner,
+  type IScanner,
+  type ScannerResult,
+  type PermissionStatus,
+} from "@/lib/ScannerService";
 import { Capacitor } from "@capacitor/core";
 import { Haptics, NotificationType } from "@capacitor/haptics";
-import { AnimatePresence, motion } from "framer-motion";
 
 const DENIED_MESSAGE = "You do not have permission to access this feature";
 
-interface HistoryItem {
+type ScanStatus = "success" | "duplicate" | "error" | "unauthorized" | "offline";
+
+interface ScanToast {
   id: string;
-  qrData: string;
-  name?: string;
-  status: "success" | "already_present" | "error";
+  type: ScanStatus;
+  name: string;
+  message: string;
+  timestamp: Date;
+  exiting?: boolean;
+}
+
+interface HistoryRow {
+  id: string;
+  name: string;
+  status: ScanStatus;
   time: Date;
-  message?: string;
 }
 
 interface QueuedScan {
   id: string;
-  payload: any;
+  payload: unknown;
   timestamp: number;
 }
 
+/** Auto-dismiss durations per toast type (ms) */
+const TOAST_MS: Record<ScanStatus, number> = {
+  success:      1200,
+  duplicate:    1800,
+  error:        2000,
+  unauthorized: 2000,
+  offline:      2000,
+};
+
+const TOAST_ICON: Record<ScanStatus, string> = {
+  success:      "✅",
+  duplicate:    "⚠️",
+  error:        "❌",
+  unauthorized: "🚫",
+  offline:      "📡",
+};
+
+const ROW_ICON: Record<ScanStatus, string> = {
+  success:      "✓",
+  duplicate:    "⚠",
+  error:        "✕",
+  unauthorized: "✕",
+  offline:      "↑",
+};
+
 export default function ScannerClient() {
-  const params = useParams();
-  const router = useRouter();
+  const params  = useParams();
+  const router  = useRouter();
   const eventId = String(params?.eventId || "");
   const { session, userData, isLoading: authLoading } = useAuth();
-  
-  // State
-  const [isChecking, setIsChecking] = useState(true);
-  const [event, setEvent] = useState<VolunteerEvent | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [permission, setPermission] = useState<PermissionStatus>('prompt');
-  const [scannerError, setScannerError] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  
-  // Advanced State
-  const [syncQueue, setSyncQueue] = useState<QueuedScan[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [activeScanResult, setActiveScanResult] = useState<HistoryItem | null>(null);
-  const [viewportFlash, setViewportFlash] = useState<"success" | "already_present" | "error" | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
 
-  // Refs
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const scannerRef = useRef<IScanner | null>(null);
-  const cooldownMapRef = useRef<Map<string, number>>(new Map());
-  const attendeeCacheRef = useRef<Map<string, { name: string; status: string }>>(new Map());
+  /* ── Access state ── */
+  const [isChecking,   setIsChecking]   = useState(true);
+  const [event,        setEvent]        = useState<VolunteerEvent | null>(null);
+  const [accessError,  setAccessError]  = useState<string | null>(null);
+
+  /* ── Scanner state ── */
+  const [isScanning,   setIsScanning]   = useState(false);
+  const [permission,   setPermission]   = useState<PermissionStatus>("prompt");
+  const [cameraError,  setCameraError]  = useState<string | null>(null);
+
+  /* ── UX state ── */
+  const [history,      setHistory]      = useState<HistoryRow[]>([]);
+  const [toasts,       setToasts]       = useState<ScanToast[]>([]);
+  const [syncQueue,    setSyncQueue]    = useState<QueuedScan[]>([]);
+  const [scanCount,    setScanCount]    = useState(0);
+  const [viewportStatus, setViewportStatus] = useState<"idle"|"success"|"duplicate"|"error">("idle");
+
+  /* ── Refs ── */
+  const videoRef          = useRef<HTMLVideoElement | null>(null);
+  const scannerRef        = useRef<IScanner | null>(null);
+  const cooldownMapRef    = useRef<Map<string, number>>(new Map());
+  const attendeeCacheRef  = useRef<Map<string, { name: string; status: string }>>(new Map());
+  const toastTimersRef    = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const viewportTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isNative = useMemo(() => Capacitor.isNativePlatform(), []);
 
-  const cachedEvent = useMemo(() => {
-    return getActiveVolunteerEvents(userData?.volunteerEvents).find(
-      (item) => item.event_id === eventId
-    ) || null;
-  }, [eventId, userData?.volunteerEvents]);
+  const cachedEvent = useMemo(() =>
+    getActiveVolunteerEvents(userData?.volunteerEvents).find(
+      (e) => e.event_id === eventId
+    ) ?? null,
+  [eventId, userData?.volunteerEvents]);
 
-  // Auth Guard
+  /* ── Auth guard ── */
   useEffect(() => {
-    if (!authLoading && !session) {
-      router.replace("/auth");
-    }
+    if (!authLoading && !session) router.replace("/auth");
   }, [authLoading, router, session]);
 
-  // Access Validation
+  /* ── Access validation ── */
   useEffect(() => {
     if (authLoading) return;
     if (!eventId || !session?.access_token) {
       setIsChecking(false);
-      setError(DENIED_MESSAGE);
+      setAccessError(DENIED_MESSAGE);
       return;
     }
 
-    const isAlreadyValidated = !!cachedEvent;
-    if (isAlreadyValidated) {
+    if (cachedEvent) {
       setEvent(cachedEvent);
       setIsChecking(false);
     }
 
     let cancelled = false;
-    async function validateAccess() {
-      if (!isAlreadyValidated) setIsChecking(true);
-      setError(null);
-      
+    async function validate() {
+      if (!cachedEvent) setIsChecking(true);
+      setAccessError(null);
       try {
-        const payload: any = await apiRequest(`/volunteer/events/${encodeURIComponent(eventId)}/access`, {
-          cache: "no-store",
-        });
+        const res: any = await apiRequest(
+          `/volunteer/events/${encodeURIComponent(eventId)}/access`,
+          { cache: "no-store" }
+        );
         if (cancelled) return;
-        if (payload.authorized === false) {
+        if (res.authorized === false) {
           setEvent(null);
-          setError(payload.error || DENIED_MESSAGE);
+          setAccessError(res.error || DENIED_MESSAGE);
           return;
         }
-        const updatedEvent = payload.event || cachedEvent;
-        setEvent(updatedEvent);
+        setEvent(res.event || cachedEvent);
       } catch (err: any) {
         if (!cancelled) {
           if (cachedEvent) setEvent(cachedEvent);
           else {
             setEvent(null);
-            setError(err.message || "Unable to validate scanner access.");
+            setAccessError(err.message || "Unable to validate access.");
           }
         }
       } finally {
         if (!cancelled) setIsChecking(false);
       }
     }
-    void validateAccess();
+    void validate();
     return () => { cancelled = true; };
   }, [cachedEvent, eventId, authLoading, session]);
 
-  // History & Queue Persistence
+  /* ── Restore session history ── */
   useEffect(() => {
     try {
-      // Load History
-      const savedHistory = sessionStorage.getItem(`scanner_history_${eventId}`);
-      if (savedHistory) {
-        const parsed = JSON.parse(savedHistory);
-        const historyItems = parsed.map((item: any) => ({ ...item, time: new Date(item.time) }));
-        setHistory(historyItems);
-        historyItems.forEach((item: HistoryItem) => {
-          if (item.status === "success" || item.status === "already_present") {
-            attendeeCacheRef.current.set(item.qrData, { name: item.name || "Attendee", status: "already_present" });
+      const raw = sessionStorage.getItem(`scan_hist_${eventId}`);
+      if (raw) {
+        const rows: HistoryRow[] = JSON.parse(raw).map((r: any) => ({
+          ...r,
+          time:   new Date(r.time),
+          status: r.status as ScanStatus,
+        }));
+        setHistory(rows);
+        setScanCount(rows.filter(r => r.status === "success").length);
+        rows.forEach(r => {
+          if (r.status === "success" || r.status === "duplicate") {
+            attendeeCacheRef.current.set(r.id, { name: r.name, status: "already_present" });
           }
         });
       }
-
-      // Load Sync Queue
-      const savedQueue = localStorage.getItem(`scanner_queue_${eventId}`);
-      if (savedQueue) {
-        setSyncQueue(JSON.parse(savedQueue));
-      }
+      const rawQ = localStorage.getItem(`scan_queue_${eventId}`);
+      if (rawQ) setSyncQueue(JSON.parse(rawQ));
     } catch {}
   }, [eventId]);
 
   useEffect(() => {
-    if (history.length > 0) {
-      sessionStorage.setItem(`scanner_history_${eventId}`, JSON.stringify(history));
-    }
+    if (history.length > 0)
+      sessionStorage.setItem(`scan_hist_${eventId}`, JSON.stringify(history));
   }, [history, eventId]);
 
   useEffect(() => {
-    localStorage.setItem(`scanner_queue_${eventId}`, JSON.stringify(syncQueue));
+    localStorage.setItem(`scan_queue_${eventId}`, JSON.stringify(syncQueue));
   }, [syncQueue, eventId]);
 
-  // Background Sync Manager
+  /* ── Background sync ── */
   useEffect(() => {
-    if (syncQueue.length === 0 || isSyncing || !session?.access_token) return;
-
-    const syncTimer = setTimeout(async () => {
-      setIsSyncing(true);
-      const nextBatch = [...syncQueue];
+    if (syncQueue.length === 0 || !session?.access_token) return;
+    const t = setTimeout(async () => {
       const remaining: QueuedScan[] = [];
-
-      for (const item of nextBatch) {
+      for (const item of syncQueue) {
         try {
           await apiRequest(`/events/${encodeURIComponent(eventId)}/scan-qr`, {
             method: "POST",
@@ -184,407 +207,324 @@ export default function ScannerClient() {
             cache: "no-store",
             timeoutMs: 5000,
           });
-          // Update history item to show synced
-          setHistory(prev => prev.map(h => h.id === item.id ? { ...h, message: "Synced" } : h));
-        } catch (err) {
+        } catch {
           remaining.push(item);
         }
       }
-
       setSyncQueue(remaining);
-      setIsSyncing(false);
     }, 5000);
+    return () => clearTimeout(t);
+  }, [syncQueue, session, eventId]);
 
-    return () => clearTimeout(syncTimer);
-  }, [syncQueue, isSyncing, session, eventId]);
-
-  // Lifecycle
+  /* ── Scanner lifecycle ── */
   useEffect(() => {
     scannerRef.current = getScanner();
     void scannerRef.current.checkPermission().then(setPermission);
     return () => {
       void scannerRef.current?.stop();
+      document.body.classList.remove("barcode-scanner-active");
+      toastTimersRef.current.forEach(clearTimeout);
     };
   }, []);
 
-  const triggerFeedback = useCallback(async (type: "success" | "error" | "warning") => {
-    if (isNative) {
-      const hapticType = type === "success" ? NotificationType.Success : 
-                         type === "warning" ? NotificationType.Warning : 
-                         NotificationType.Error;
-      await Haptics.notification({ type: hapticType });
-    } else if ("vibrate" in navigator) {
-      navigator.vibrate(type === "success" ? 200 : [100, 50, 100]);
-    }
+  /* ── Toast system ── */
+  const pushToast = useCallback((t: Omit<ScanToast, "id" | "timestamp">) => {
+    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+    setToasts(prev => [{ ...t, id, timestamp: new Date() }, ...prev].slice(0, 3));
 
-    try {
-      const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
-      const audioCtx = new AudioContextClass();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(type === "success" ? 880 : 220, audioCtx.currentTime);
-      gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + (type === "success" ? 0.15 : 0.3));
-    } catch (e) {}
+    const timer = setTimeout(() => {
+      setToasts(prev => prev.map(x => x.id === id ? { ...x, exiting: true } : x));
+      setTimeout(() => {
+        setToasts(prev => prev.filter(x => x.id !== id));
+        toastTimersRef.current.delete(id);
+      }, 140);
+    }, TOAST_MS[t.type]);
+
+    toastTimersRef.current.set(id, timer);
+  }, []);
+
+  /* ── Viewport border flash ── */
+  const flashViewport = useCallback((s: "success" | "duplicate" | "error") => {
+    setViewportStatus(s);
+    if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
+    viewportTimerRef.current = setTimeout(() => setViewportStatus("idle"), 500);
+  }, []);
+
+  /* ── Haptics ── */
+  const haptic = useCallback(async (type: "success" | "warning" | "error") => {
+    if (isNative) {
+      try {
+        await Haptics.notification({
+          type: type === "success" ? NotificationType.Success
+              : type === "warning" ? NotificationType.Warning
+              : NotificationType.Error,
+        });
+      } catch {}
+    } else if ("vibrate" in navigator) {
+      navigator.vibrate(type === "success" ? [70] : [50, 40, 50]);
+    }
   }, [isNative]);
 
-  const triggerPopup = (item: HistoryItem) => {
-    setActiveScanResult(item);
-    setViewportFlash(item.status);
-    
-    // Clear popup after 2 seconds
-    setTimeout(() => {
-      setActiveScanResult(null);
-      setViewportFlash(null);
-    }, 2000);
-  };
-
-  const processScan = async (scanResult: ScannerResult) => {
+  /* ── Core scan processor ── */
+  const processScan = useCallback(async (result: ScannerResult) => {
     if (!session?.access_token || !event) return;
 
-    const qrCodeData = scanResult.data;
-    const now = Date.now();
-    const lastScanTime = cooldownMapRef.current.get(qrCodeData);
+    const qrData = result.data;
+    const now    = Date.now();
+    const last   = cooldownMapRef.current.get(qrData);
+    if (last && now - last < 2500) return;
+    cooldownMapRef.current.set(qrData, now);
 
-    // Cooldown check (3s for bulk safety)
-    if (lastScanTime && now - lastScanTime < 3000) return; 
-    cooldownMapRef.current.set(qrCodeData, now);
-
-    let optimisticName = "Attendee";
-    let isLocallyPresent = false;
-
-    const cached = attendeeCacheRef.current.get(qrCodeData);
-    if (cached) {
-       optimisticName = cached.name || optimisticName;
-       isLocallyPresent = cached.status === "already_present";
-    } else {
-       try {
-         const parsed = JSON.parse(qrCodeData);
-         if (parsed.name) optimisticName = parsed.name;
-       } catch {}
+    /* Locally-known duplicate */
+    const cached = attendeeCacheRef.current.get(qrData);
+    if (cached?.status === "already_present") {
+      void haptic("warning");
+      flashViewport("duplicate");
+      pushToast({ type: "duplicate", name: cached.name, message: "Already scanned" });
+      return;
     }
 
-    if (isLocallyPresent) {
-       void triggerFeedback("warning");
-       const item: HistoryItem = { id: Math.random().toString(), qrData: qrCodeData, name: optimisticName, status: "already_present", time: new Date(), message: "Duplicate Scan" };
-       triggerPopup(item);
-       return;
-    }
+    /* Optimistic name extraction */
+    let name = "Attendee";
+    try { const p = JSON.parse(qrData); if (p.name) name = p.name; } catch {}
 
-    // [OPTIMISTIC SUCCESS]
-    attendeeCacheRef.current.set(qrCodeData, { name: optimisticName, status: "already_present" });
-    void triggerFeedback("success");
+    /* Optimistic success */
+    const rowId = `r_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+    void haptic("success");
+    flashViewport("success");
+    pushToast({ type: "success", name, message: "Marked present" });
+    setHistory(prev => [{ id: rowId, name, status: "success" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
+    setScanCount(prev => prev + 1);
+    attendeeCacheRef.current.set(qrData, { name, status: "already_present" });
 
-    const historyId = Math.random().toString(36).substr(2, 9);
-    const optimisticItem: HistoryItem = { id: historyId, qrData: qrCodeData, name: optimisticName, status: "success", time: new Date(), message: "Verifying..." };
-    
-    setHistory(prev => [optimisticItem, ...prev].slice(0, 50)); 
-    triggerPopup(optimisticItem);
-    
     const payload = {
-      qrCodeData,
+      qrCodeData: qrData,
       volunteerId: userData?.register_number,
-      scannerInfo: { source: "sociomobilev2", platform: Capacitor.getPlatform(), format: scanResult.format, userAgent: navigator.userAgent, timestamp: new Date().toISOString() },
+      scannerInfo: {
+        source:    "sociomobilev2",
+        platform:  Capacitor.getPlatform(),
+        format:    result.format,
+        timestamp: new Date().toISOString(),
+      },
     };
 
-    // Try immediate sync
     try {
-      const result: any = await apiRequest(`/events/${encodeURIComponent(event.event_id)}/scan-qr`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-        cache: "no-store",
-        timeoutMs: 4000,
-      });
+      const res: any = await apiRequest(
+        `/events/${encodeURIComponent(event.event_id)}/scan-qr`,
+        { method: "POST", body: JSON.stringify(payload), cache: "no-store", timeoutMs: 4000 }
+      );
 
-      const participant = result.participant;
-      const isAlreadyPresent = participant?.status === "already_present";
-      const finalName = participant?.name || optimisticName;
+      const participant = res.participant;
+      const finalName   = participant?.name || name;
+      attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
 
-      attendeeCacheRef.current.set(qrCodeData, { name: finalName, status: "already_present" });
-      const updatedItem: HistoryItem = { ...optimisticItem, name: finalName, status: isAlreadyPresent ? "already_present" : "success", message: isAlreadyPresent ? "Already Confirmed" : "Attendance Marked" };
-      
-      setHistory(prev => prev.map(item => item.id === historyId ? updatedItem : item));
-      if (activeScanResult?.id === historyId) setActiveScanResult(updatedItem);
-      
-      if (isAlreadyPresent) {
-        void triggerFeedback("warning");
-        setViewportFlash("already_present");
+      if (participant?.status === "already_present") {
+        void haptic("warning");
+        flashViewport("duplicate");
+        setHistory(prev => prev.map(r => r.id === rowId ? { ...r, name: finalName, status: "duplicate" } : r));
+        pushToast({ type: "duplicate", name: finalName, message: "Already scanned" });
+      } else {
+        setHistory(prev => prev.map(r => r.id === rowId ? { ...r, name: finalName } : r));
       }
     } catch (err: any) {
-      // Add to background sync queue if it was a network error
-      const isNetworkError = err.message?.includes("Network") || err.name === "TimeoutError" || err.message?.includes("failed to fetch");
-      if (isNetworkError) {
-        setSyncQueue(prev => [...prev, { id: historyId, payload, timestamp: Date.now() }]);
+      const isNetwork = err.message?.toLowerCase().includes("network")
+        || err.name === "TimeoutError"
+        || err.message?.toLowerCase().includes("fetch");
+
+      if (isNetwork) {
+        setSyncQueue(prev => [...prev, { id: rowId, payload, timestamp: Date.now() }]);
+        pushToast({ type: "offline", name, message: "Will sync when online" });
       } else {
-        // Validation error
-        attendeeCacheRef.current.delete(qrCodeData);
-        cooldownMapRef.current.set(qrCodeData, 0); 
-        void triggerFeedback("error");
-        const errorItem: HistoryItem = { ...optimisticItem, status: "error", message: err.message || "Invalid QR" };
-        setHistory(prev => prev.map(item => item.id === historyId ? errorItem : item));
-        triggerPopup(errorItem);
+        void haptic("error");
+        flashViewport("error");
+        attendeeCacheRef.current.delete(qrData);
+        cooldownMapRef.current.set(qrData, 0);
+        setHistory(prev => prev.map(r => r.id === rowId ? { ...r, status: "error" } : r));
+        setScanCount(prev => Math.max(0, prev - 1));
+        pushToast({ type: "error", name: "Invalid QR", message: err.message || "QR not recognized" });
       }
     }
-  };
+  }, [session, event, userData, haptic, flashViewport, pushToast]);
 
+  /* ── Camera controls ── */
   const startScanner = async () => {
     if (!videoRef.current || !scannerRef.current) return;
+    setCameraError(null);
     try {
-      setScannerError(null);
-      let currentPermission = await scannerRef.current.checkPermission();
-      if (currentPermission !== 'granted') {
-        currentPermission = await scannerRef.current.requestPermission();
-        setPermission(currentPermission);
-        if (currentPermission !== 'granted') throw new Error("Camera permission is required");
+      let perm = await scannerRef.current.checkPermission();
+      if (perm !== "granted") {
+        perm = await scannerRef.current.requestPermission();
+        setPermission(perm);
+        if (perm !== "granted") throw new Error("Camera permission required");
       }
-      await scannerRef.current.start(videoRef.current, (result) => void processScan(result));
+      await scannerRef.current.start(videoRef.current, r => void processScan(r));
       setIsScanning(true);
-      document.body.classList.add('scanner-mode-active');
     } catch (err: any) {
       setIsScanning(false);
-      setScannerError(err.message || "Camera access required");
+      setCameraError(err.message || "Camera access required");
     }
   };
 
   const stopScanner = async () => {
     await scannerRef.current?.stop();
     setIsScanning(false);
-    document.body.classList.remove('scanner-mode-active');
   };
 
-  const filteredHistory = useMemo(() => {
-     if (!searchQuery) return history;
-     const q = searchQuery.toLowerCase();
-     return history.filter(item => 
-        item.name?.toLowerCase().includes(q) || 
-        item.message?.toLowerCase().includes(q)
-     );
-  }, [history, searchQuery]);
-
+  /* ── Loading / Error guards ── */
   if (authLoading || (isChecking && !event)) return <LoadingScreen />;
 
-  if (!event || error) {
+  if (!event || accessError) {
     return (
-      <div className="pwa-page px-4 pt-[calc(var(--nav-height)+var(--safe-top)+16px)] bg-slate-50">
-        <div className="mx-auto max-w-[420px] card-op text-center py-10 shadow-xl border-none">
-          <AlertTriangleIcon size={48} className="mx-auto text-red-500 mb-4" />
-          <h1 className="text-xl font-black text-slate-900">Access Restricted</h1>
-          <p className="mt-2 text-sm font-medium text-slate-500 max-w-[280px] mx-auto leading-relaxed">
-             {error || "Operational access denied for this event terminal."}
+      <div className="pwa-page flex items-center justify-center bg-white px-6">
+        <div className="text-center max-w-[300px]">
+          <AlertTriangleIcon size={40} className="mx-auto text-red-500 mb-3" />
+          <h1 className="text-lg font-bold text-slate-900">Access Restricted</h1>
+          <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+            {accessError || "You don't have access to scan this event."}
           </p>
-          <div className="mt-8 px-6">
-             <Button variant="primary" fullWidth onClick={() => router.replace("/volunteer")}>
-                Exit Terminal
-             </Button>
-          </div>
+          <button
+            onClick={() => router.replace("/volunteer")}
+            className="mt-6 w-full h-11 bg-slate-900 text-white rounded-xl text-sm font-semibold"
+          >
+            Go back
+          </button>
         </div>
       </div>
     );
   }
 
+  /* ── Main render ── */
   return (
-    <div className={`pwa-page ${isScanning ? 'scanner-mode-active' : 'bg-slate-50'}`}>
-      
-      {/* Premium Floating Header */}
-      <header className="scanner-header-glass">
-        <button onClick={() => isScanning ? stopScanner() : router.replace("/volunteer")} className="p-2 -ml-2 text-white/80 active:scale-95 transition-transform">
-          <ArrowLeftIcon size={20} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-black text-white truncate leading-tight tracking-tight">{event.title}</h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <div className={`status-indicator ${isScanning ? 'text-emerald-400' : 'text-slate-400'}`} style={{ color: 'currentColor' }} />
-            <span className="text-[10px] font-black text-white/60 tracking-[0.1em] uppercase">
-              {isScanning ? 'Scanner Live' : 'Terminal Standby'}
+    <div className={`scan-page${isNative && isScanning ? " scan-native-active" : ""}`}>
+
+      {/* ── Toast Stack ── */}
+      <div className="scan-toast-stack" aria-live="polite" aria-atomic="false">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            role="alert"
+            className={`scan-toast scan-toast-${toast.type}${toast.exiting ? " scan-toast-exit" : ""}`}
+          >
+            <span className="scan-toast-icon">{TOAST_ICON[toast.type]}</span>
+            <div className="scan-toast-body">
+              <span className="scan-toast-name">{toast.name}</span>
+              <span className="scan-toast-msg">{toast.message}</span>
+            </div>
+            <span className="scan-toast-time">
+              {toast.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-           {syncQueue.length > 0 && (
-              <div className="h-8 px-2.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center gap-1.5">
-                 <RefreshCcwIcon size={12} className="animate-spin" />
-                 <span className="text-[10px] font-black">{syncQueue.length}</span>
-              </div>
-           )}
-           <div className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/10 border border-white/20 text-white/80">
-             <ShieldCheckIcon size={14} className="text-emerald-400" />
-             <span className="text-[10px] font-black uppercase tracking-tight">Lead</span>
-           </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-[440px] px-4 space-y-6 pt-[calc(var(--nav-height)+var(--safe-top)+40px)] pb-20">
-        
-        {/* Immersive Viewport */}
-        <section className={`scanner-viewport-premium ${isScanning ? 'scanning-active' : ''} border-none shadow-2xl shadow-slate-200`}>
-          <video
-            ref={videoRef}
-            className={`w-full h-full object-cover transition-opacity duration-700 ${isNative ? 'opacity-0' : 'opacity-100'}`}
-            muted
-            playsInline
-          />
-
-          {/* Viewport Flash Overlays */}
-          <motion.div 
-            animate={{ opacity: viewportFlash ? 1 : 0 }}
-            className={`viewport-flash flash-${viewportFlash === 'already_present' ? 'warning' : viewportFlash}`} 
-          />
-          
-          <AnimatePresence>
-            {!isScanning && (
-              <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-900/90 text-white px-8 text-center backdrop-blur-md"
-              >
-                <div className="w-20 h-20 rounded-3xl bg-white/10 flex items-center justify-center mb-6 border border-white/10 shadow-2xl">
-                  <CameraIcon size={40} className="text-white" />
-                </div>
-                <h3 className="text-lg font-black tracking-tight">Terminal Standby</h3>
-                <p className="text-xs text-white/50 mt-2 leading-relaxed max-w-[220px] font-medium">
-                  Continuous high-speed scanning mode. Align attendee QR in guides.
-                </p>
-                <button onClick={startScanner} className="mt-8 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 shadow-blue-600/20">
-                  Activate Terminal
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Premium Operational Guides */}
-          {isScanning && (
-            <>
-              <div className="scanner-roi-box" />
-              <div className="scanner-laser-premium" />
-            </>
-          )}
-
-          {scannerError && (
-             <div className="absolute bottom-6 left-6 right-6 z-40 p-4 bg-red-500/90 backdrop-blur-xl rounded-2xl border border-red-400/50 flex items-center gap-3 text-white">
-                <AlertTriangleIcon size={20} className="shrink-0" />
-                <p className="text-xs font-black leading-tight uppercase tracking-wide">{scannerError}</p>
-             </div>
-          )}
-        </section>
-
-        {/* Operational Stats & Search */}
-        {!isScanning && (
-          <section className="space-y-4">
-             <div className="grid grid-cols-2 gap-3">
-                <div className="card-op bg-white border-none shadow-sm p-4 text-center">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Scanned Today</p>
-                   <span className="text-2xl font-black text-slate-900">{history.length}</span>
-                </div>
-                <div className="card-op bg-white border-none shadow-sm p-4 text-center">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Queue Status</p>
-                   <span className={`text-sm font-black uppercase ${syncQueue.length > 0 ? 'text-amber-500' : 'text-emerald-600'}`}>
-                     {syncQueue.length > 0 ? 'Synchronizing' : 'Verified'}
-                   </span>
-                </div>
-             </div>
-
-             <div className="relative">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
-                   <SearchIcon size={16} />
-                </div>
-                <input 
-                  type="text"
-                  placeholder="Search local ledger..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-12 bg-white rounded-2xl pl-11 pr-4 text-sm font-bold text-slate-900 border-none shadow-sm focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-300"
-                />
-             </div>
-          </section>
-        )}
-
-        {isScanning && (
-          <div className="flex justify-center">
-             <button onClick={stopScanner} className="px-10 py-3 bg-white/10 backdrop-blur-2xl border border-white/20 text-white rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl active:scale-95 transition-all">
-               Deactivate Terminal
-             </button>
-          </div>
-        )}
-
-        {/* Attendance Ledger */}
-        <section className={`space-y-4 transition-all duration-700 ${isScanning ? 'opacity-20 blur-md scale-95 pointer-events-none' : 'opacity-100'}`}>
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] flex items-center gap-2">
-               <HistoryIcon size={14} className="text-slate-300" />
-               Realtime Ledger
-            </h2>
-            <div className="h-px flex-1 mx-4 bg-slate-200" />
-            <span className="text-[10px] font-black text-slate-400 tabular-nums">{filteredHistory.length} ENTRIES</span>
-          </div>
-
-          <div className="scanner-ledger space-y-2 border-none bg-white p-3 rounded-[28px] shadow-sm">
-            {filteredHistory.length === 0 ? (
-              <div className="py-16 text-center opacity-20">
-                <QrCodeIcon size={48} className="mx-auto mb-4" />
-                <p className="text-xs font-black uppercase tracking-widest">No entries found</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredHistory.map((item) => (
-                  <div key={item.id} className="ledger-item group border-none bg-slate-50/50 hover:bg-slate-50 active:scale-[0.98] transition-all p-3 rounded-2xl">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                      item.status === 'success' ? 'bg-emerald-100 text-emerald-600' :
-                      item.status === 'already_present' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
-                    }`}>
-                      {item.status === 'error' ? <XIcon size={18} /> : 
-                       item.status === 'already_present' ? <ShieldCheckIcon size={18} /> : <CheckCircleIcon size={18} />}
-                    </div>
-                    <div className="flex-1 min-w-0 ml-3">
-                      <p className="text-[13px] font-black text-slate-900 truncate group-active:text-slate-600 tracking-tight">{item.name}</p>
-                      <p className={`text-[10px] font-bold uppercase tracking-wide mt-0.5 ${
-                         item.status === 'success' ? 'text-emerald-500' :
-                         item.status === 'already_present' ? 'text-amber-500' :
-                         'text-red-500'
-                      }`}>{item.message}</p>
-                    </div>
-                    <div className="text-[10px] font-black text-slate-300 tabular-nums">
-                      {item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
+        ))}
       </div>
 
-      {/* Centered Scan Popup */}
-      <AnimatePresence>
-        {activeScanResult && (
-          <div className="scanner-popup-container">
-            <motion.div 
-              initial={{ scale: 0.8, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: -20 }}
-              className="scanner-popup"
-            >
-              <div className={`popup-icon-wrapper popup-${activeScanResult.status === 'already_present' ? 'warning' : activeScanResult.status}`}>
-                {activeScanResult.status === 'success' ? <CheckCircleIcon size={32} /> :
-                 activeScanResult.status === 'already_present' ? <AlertTriangleIcon size={32} /> :
-                 <XIcon size={32} />}
-              </div>
-              <h2 className="text-xl font-black text-slate-900 leading-tight truncate w-full px-2">
-                {activeScanResult.name}
-              </h2>
-              <p className={`text-xs font-black uppercase tracking-[0.15em] mt-2 ${
-                activeScanResult.status === 'success' ? 'text-emerald-500' :
-                activeScanResult.status === 'already_present' ? 'text-amber-500' :
-                'text-red-500'
-              }`}>
-                {activeScanResult.message}
-              </p>
-            </motion.div>
+      {/* ── Header ── */}
+      <header className="scan-header">
+        <button
+          className="scan-back-btn"
+          aria-label="Go back"
+          onClick={() => { void stopScanner(); router.replace("/volunteer"); }}
+        >
+          <ArrowLeftIcon size={20} />
+        </button>
+
+        <div className="scan-header-title">
+          <span className="scan-event-name">{event.title}</span>
+          {isScanning && (
+            <span className="scan-live-pill">
+              <span className="scan-live-dot" />
+              Scanning
+            </span>
+          )}
+        </div>
+
+        <span className="scan-count-badge">{scanCount} scanned</span>
+      </header>
+
+      {/* ── Camera Viewport ── */}
+      <section
+        id="scan-viewport"
+        className={`scan-viewport scan-viewport-${viewportStatus}`}
+        aria-label="Camera scanner"
+      >
+        <video
+          ref={videoRef}
+          className={`scan-video${isNative ? " scan-video-native" : ""}`}
+          muted
+          playsInline
+          autoPlay
+        />
+
+        {/* Corner brackets + sweep line */}
+        {isScanning && (
+          <div className="scan-frame" aria-hidden="true">
+            <div className="scan-corner scan-corner-tl" />
+            <div className="scan-corner scan-corner-tr" />
+            <div className="scan-corner scan-corner-bl" />
+            <div className="scan-corner scan-corner-br" />
+            <div className="scan-line" />
           </div>
         )}
-      </AnimatePresence>
+
+        {/* Idle state */}
+        {!isScanning && (
+          <div className="scan-idle-overlay">
+            <CameraIcon size={36} className="scan-idle-icon" />
+            <p className="scan-idle-label">Ready to scan</p>
+            {cameraError && <p className="scan-camera-error">{cameraError}</p>}
+            <button
+              id="start-scanning-btn"
+              className="scan-start-btn"
+              onClick={() => void startScanner()}
+            >
+              Start scanning
+            </button>
+          </div>
+        )}
+
+        {/* In-viewport stop control */}
+        {isScanning && (
+          <button
+            className="scan-stop-btn"
+            aria-label="Stop scanning"
+            onClick={() => void stopScanner()}
+          >
+            Stop
+          </button>
+        )}
+      </section>
+
+      {/* ── Recent Scans ── */}
+      <section className="scan-history-section" aria-label="Recent scans">
+        <p className="scan-history-label">
+          Recent scans
+          {syncQueue.length > 0 && (
+            <span className="scan-sync-badge">● {syncQueue.length} pending sync</span>
+          )}
+        </p>
+
+        <div className="scan-history-list" id="scan-history-list">
+          {history.length === 0 ? (
+            <div className="scan-history-empty">
+              <QrCodeIcon size={22} />
+              <span>No scans yet</span>
+            </div>
+          ) : (
+            history.slice(0, 20).map(row => (
+              <div key={row.id} className={`scan-row scan-row-${row.status}`}>
+                <span className="scan-row-icon">{ROW_ICON[row.status]}</span>
+                <span className="scan-row-name">{row.name}</span>
+                <span className="scan-row-time">
+                  {row.time.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
     </div>
   );
 }

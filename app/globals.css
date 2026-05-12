@@ -488,174 +488,241 @@ html, body {
   display: flex; align-items: center; gap: 2px;
 }
 
-/* ── Premium Scanner Design System ──────────────────────────
-   Inspired by Stripe Terminal & Modern Ticketing Systems
-   ────────────────────────────────────────────────────────── */
+/* ── Operational QR Scanner ─────────────────────────────────────────────────
+   Inspired by: Google Pay, Paytm, courier apps, warehouse/airport scanners.
+   Philosophy: Speed over aesthetics. Tool, not dashboard. No dark themes.
+   ──────────────────────────────────────────────────────────────────────── */
 
-/* Root Overrides for Scanner */
-.scanner-mode-active {
-  --color-bg: #0F172A; /* Slate-900 for high contrast */
-  overflow: hidden !important;
-}
-
-.barcode-scanner-active {
-  background: transparent !important;
-}
-
+/* Native Capacitor transparent body */
+.barcode-scanner-active,
 .barcode-scanner-active body,
 .barcode-scanner-active main,
-.barcode-scanner-active #__next {
-  background: transparent !important;
+.barcode-scanner-active #__next { background: transparent !important; }
+
+/* ── Animations ── */
+@keyframes scan-sweep {
+  0%   { top: 22%; }
+  100% { top: 78%; }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Immersive Viewport */
-.scanner-viewport-premium {
-  position: relative;
-  width: 100%;
-  height: 60vh;
-  max-height: 500px;
-  margin: 0 auto;
-  border-radius: 40px;
-  overflow: hidden;
-  background: #000;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 20px 50px rgba(0,0,0,0.5);
-  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.barcode-scanner-active .scanner-viewport-premium {
-  background: transparent !important;
-  box-shadow: 0 0 0 2px var(--color-success), 0 0 40px rgba(16, 185, 129, 0.2);
-  border-radius: 0;
-  height: 100vh;
-  max-height: none;
-}
-
-/* Floating Glass Header */
-.scanner-header-glass {
-  position: fixed;
-  top: calc(var(--safe-top) + 16px);
-  left: 16px;
-  right: 16px;
-  z-index: 100;
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-/* ── Refined Laser & Guides ── */
-.scanner-laser-premium {
-  position: absolute;
-  left: 32px;
-  right: 32px;
-  height: 2px;
-  background: linear-gradient(to right, transparent, var(--color-success), transparent);
-  box-shadow: 0 0 15px 4px rgba(16, 185, 129, 0.4);
-  z-index: 31;
-  border-radius: 100%;
-  animation: laser-scan-premium 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.scanner-roi-box {
-  position: absolute;
-  inset: 20%;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 32px;
-  z-index: 25;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.scanner-roi-box::after {
-  content: "CENTER QR CODE";
-  font-size: 9px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.3);
-  letter-spacing: 2px;
-}
-
-/* ── Viewport Flash Effects ── */
-.viewport-flash {
-  position: absolute;
-  inset: 0;
-  z-index: 45;
-  pointer-events: none;
-  opacity: 0;
-}
-
-.flash-success { background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, transparent 70%); }
-.flash-warning { background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%); }
-.flash-error   { background: radial-gradient(circle, rgba(239, 68, 68, 0.3) 0%, transparent 70%); }
-
-/* ── Centered Scanner Popup ── */
-.scanner-popup-container {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  pointer-events: none;
-}
-
-.scanner-popup {
-  background: white;
-  border-radius: 32px;
-  padding: 24px;
-  width: 100%;
-  max-width: 320px;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05);
+/* ── Page Layout ── */
+.scan-page {
   display: flex;
   flex-direction: column;
+  height: 100dvh;
+  background: #fff;
+  overflow: hidden;
+}
+.scan-native-active { background: transparent; }
+
+/* ── Header — slim, invisible-feeling ── */
+.scan-header {
+  display: flex;
   align-items: center;
-  text-align: center;
+  gap: 10px;
+  padding: 0 12px;
+  padding-top: var(--safe-top);
+  height: calc(var(--safe-top) + 50px);
+  background: #fff;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.scan-back-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 10px; border: none;
+  background: #f8fafc; color: #334155;
+  flex-shrink: 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 100ms ease;
+}
+.scan-back-btn:active { background: #e2e8f0; }
+.scan-header-title {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.scan-event-name {
+  font-size: 14px; font-weight: 700; color: #0f172a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.scan-live-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; color: #16a34a;
+  letter-spacing: 0.04em; flex-shrink: 0;
+}
+.scan-live-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #16a34a; animation: pulse-soft 1.5s ease infinite;
+}
+.scan-count-badge {
+  font-size: 11px; font-weight: 600; color: #94a3b8; flex-shrink: 0;
+}
+
+/* ── Camera Viewport ── */
+.scan-viewport {
+  position: relative; width: 100%;
+  flex: 0 0 58vh; max-height: 480px;
+  background: #0f172a; overflow: hidden;
+  border-bottom: 2.5px solid transparent;
+  transition: border-color 80ms ease;
+  flex-shrink: 0;
+}
+.scan-viewport-success  { border-bottom-color: #16a34a; }
+.scan-viewport-duplicate { border-bottom-color: #d97706; }
+.scan-viewport-error    { border-bottom-color: #dc2626; }
+.scan-viewport-idle     { border-bottom-color: transparent; }
+
+.scan-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-video-native { opacity: 0; }
+
+/* ── QR Corner Brackets ── */
+.scan-frame { position: absolute; inset: 0; pointer-events: none; }
+.scan-corner {
+  position: absolute; width: 20px; height: 20px;
+  border-color: rgba(255,255,255,0.8); border-style: solid;
+}
+.scan-corner-tl { top: 18%; left: 14%; border-width: 2px 0 0 2px; }
+.scan-corner-tr { top: 18%; right: 14%; border-width: 2px 2px 0 0; }
+.scan-corner-bl { bottom: 18%; left: 14%; border-width: 0 0 2px 2px; }
+.scan-corner-br { bottom: 18%; right: 14%; border-width: 0 2px 2px 0; }
+
+/* ── Scan Line ── */
+.scan-line {
+  position: absolute; left: 14%; right: 14%;
+  height: 1.5px; background: rgba(34,197,94,0.85);
+  top: 20%; animation: scan-sweep 2s linear infinite;
+  will-change: top;
+}
+
+/* ── Idle Overlay ── */
+.scan-idle-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: #0f172a; gap: 6px;
+}
+.scan-idle-icon { color: rgba(255,255,255,0.25); margin-bottom: 2px; }
+.scan-idle-label { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.45); margin: 0; }
+.scan-camera-error {
+  font-size: 11px; color: #f87171; margin: 0;
+  text-align: center; padding: 0 24px;
+}
+.scan-start-btn {
+  margin-top: 14px; padding: 10px 32px;
+  background: #fff; color: #0f172a;
+  border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 100ms ease;
+}
+.scan-start-btn:active { opacity: 0.82; }
+
+/* ── Stop Button (in-viewport) ── */
+.scan-stop-btn {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  padding: 7px 22px;
+  background: rgba(0,0,0,0.45); color: rgba(255,255,255,0.9);
+  border: 1px solid rgba(255,255,255,0.18); border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(8px);
+  transition: background 100ms ease;
+}
+.scan-stop-btn:active { background: rgba(0,0,0,0.65); }
+
+/* ── Toast Stack ── */
+.scan-toast-stack {
+  position: fixed;
+  top: calc(var(--safe-top) + 52px);
+  left: 50%; transform: translateX(-50%);
+  width: 92%; max-width: 380px;
+  z-index: 200;
+  display: flex; flex-direction: column; gap: 6px;
+  pointer-events: none;
+}
+.scan-toast {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  background: #fff;
+  border-radius: 10px;
+  border-left: 3px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
+  animation: toast-in 160ms ease-out both;
   pointer-events: auto;
 }
+.scan-toast.scan-toast-exit { animation: toast-out 130ms ease-in both; }
+.scan-toast-success  { border-left-color: #16a34a; }
+.scan-toast-duplicate { border-left-color: #d97706; }
+.scan-toast-error    { border-left-color: #dc2626; }
+.scan-toast-unauthorized { border-left-color: #64748b; }
+.scan-toast-offline  { border-left-color: #3b82f6; }
 
-.popup-icon-wrapper {
-  width: 64px;
-  height: 64px;
-  border-radius: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+.scan-toast-icon { font-size: 16px; flex-shrink: 0; line-height: 1; }
+.scan-toast-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.scan-toast-name { font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-toast-msg  { font-size: 11px; font-weight: 500; color: #64748b; }
+.scan-toast-time { font-size: 10px; font-weight: 600; color: #94a3b8; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+/* ── History Section ── */
+.scan-history-section {
+  flex: 1; display: flex; flex-direction: column;
+  min-height: 0; background: #fff; overflow: hidden;
+}
+.scan-history-label {
+  font-size: 10px; font-weight: 700; color: #94a3b8;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 7px 14px 5px;
+  border-bottom: 1px solid #f8fafc;
+  display: flex; align-items: center; gap: 8px;
+  margin: 0; flex-shrink: 0;
+}
+.scan-sync-badge { font-size: 9px; color: #d97706; font-weight: 700; }
+.scan-history-list {
+  overflow-y: auto; flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+.scan-history-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px; padding: 28px 16px;
+  color: #cbd5e1; font-size: 12px; font-weight: 600;
 }
 
-.popup-success { color: var(--color-success); background: #ecfdf5; }
-.popup-warning { color: var(--color-warning); background: #fffbeb; }
-.popup-error   { color: var(--color-danger);  background: #fef2f2; }
-
-/* ── Pro History Ledger ── */
-.scanner-ledger {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 32px;
-  padding: 20px;
-  backdrop-filter: blur(10px);
+/* ── Scan Row — 42px target ── */
+.scan-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px; height: 42px;
+  border-bottom: 1px solid #f8fafc;
+  animation: row-in 140ms ease-out both;
 }
+.scan-row-icon {
+  font-size: 12px; font-weight: 900; width: 18px;
+  text-align: center; flex-shrink: 0;
+}
+.scan-row-success  .scan-row-icon { color: #16a34a; }
+.scan-row-duplicate .scan-row-icon { color: #d97706; }
+.scan-row-error    .scan-row-icon { color: #dc2626; }
+.scan-row-offline  .scan-row-icon { color: #3b82f6; }
 
-.ledger-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  margin-bottom: 10px;
-  transition: all 0.2s ease;
+.scan-row-name {
+  flex: 1; min-width: 0;
+  font-size: 13px; font-weight: 600; color: #0f172a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.scan-row-time {
+  font-size: 10px; font-weight: 600; color: #94a3b8;
+  flex-shrink: 0; font-variant-numeric: tabular-nums;
 }
