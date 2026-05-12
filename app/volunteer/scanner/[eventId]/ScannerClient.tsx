@@ -103,6 +103,7 @@ export default function ScannerClient() {
   const attendeeCacheRef  = useRef<Map<string, { name: string; status: string }>>(new Map());
   const toastTimersRef    = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const viewportTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef        = useRef(true);
 
   const isNative = useMemo(() => Capacitor.isNativePlatform(), []);
 
@@ -112,6 +113,174 @@ export default function ScannerClient() {
     ) ?? null,
   [eventId, userData?.volunteerEvents]);
 
+  /* ── Component Lifecycle ── */
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  /* ── UX & Toast system ── */
+  const pushToast = useCallback((t: Omit<ScanToast, "id" | "timestamp">) => {
+    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+    setToasts(prev => [{ ...t, id, timestamp: new Date() }, ...prev].slice(0, 3));
+
+    const timer = setTimeout(() => {
+      setToasts(prev => prev.map(x => x.id === id ? { ...x, exiting: true } : x));
+      setTimeout(() => {
+        setToasts(prev => prev.filter(x => x.id !== id));
+        toastTimersRef.current.delete(id);
+      }, 140);
+    }, TOAST_MS[t.type]);
+
+    toastTimersRef.current.set(id, timer);
+  }, []);
+
+  const flashViewport = useCallback((s: "success" | "duplicate" | "error") => {
+    setViewportStatus(s);
+    if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
+    viewportTimerRef.current = setTimeout(() => setViewportStatus("idle"), 500);
+  }, []);
+
+  /* ── Haptics ── */
+  const haptic = useCallback(async (type: "success" | "warning" | "error") => {
+    if (isNative) {
+      try {
+        await Haptics.notification({
+          type: type === "success" ? NotificationType.Success
+              : type === "warning" ? NotificationType.Warning
+              : NotificationType.Error,
+        });
+      } catch {}
+    } else if ("vibrate" in navigator) {
+      navigator.vibrate(type === "success" ? [70] : [50, 40, 50]);
+    }
+  }, [isNative]);
+
+  /* ── Camera controls ── */
+  const stopScanner = useCallback(async () => {
+    console.log(`[FatalScannerTrace] Stopping scanner...`);
+    try {
+      if (scannerRef.current) {
+        await scannerRef.current.stop();
+      }
+      
+      // Hard cleanup of DOM and streams just in case
+      document.body.classList.remove("barcode-scanner-active");
+      if (videoRef.current) {
+        try {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream?.getTracks().forEach(t => t.stop());
+          videoRef.current.srcObject = null;
+        } catch (e) {
+          console.error(`[FatalScannerTrace] Error cleaning up video stream:`, e);
+        }
+      }
+    } catch (err) {
+      console.error(`[FatalScannerTrace] Error during scanner stop:`, err);
+    } finally {
+      setIsScanning(false);
+    }
+  }, []);
+
+  /* ── Core scan processor (backend-authoritative) ── */
+  const processScan = useCallback(async (result: ScannerResult) => {
+    if (!session?.access_token || !event) return;
+
+    const qrData = result.data;
+    const now    = Date.now();
+    const last   = cooldownMapRef.current.get(qrData);
+    if (last && now - last < 2500) return;
+    cooldownMapRef.current.set(qrData, now);
+
+    const cached = attendeeCacheRef.current.get(qrData);
+    if (cached?.status === "already_present") {
+      void haptic("warning");
+      flashViewport("duplicate");
+      pushToast({ type: "duplicate", name: cached.name, message: "Already checked in" });
+      return;
+    }
+
+    const payload = {
+      qrCodeData: qrData,
+      volunteerId: userData?.register_number,
+      scannerInfo: {
+        source:    "sociomobilev2",
+        platform:  Capacitor.getPlatform(),
+        format:    result.format,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    try {
+      setIsVerifying(true);
+      const res: any = await apiRequest(
+        `/events/${encodeURIComponent(event.event_id)}/scan-qr`,
+        { method: "POST", body: JSON.stringify(payload), cache: "no-store", timeoutMs: 4000 }
+      );
+
+      const participant = res.participant;
+      const finalName   = participant?.name || "Attendee";
+
+      if (participant?.status === "already_present") {
+        void haptic("warning");
+        flashViewport("duplicate");
+        attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
+        pushToast({ type: "duplicate", name: finalName, message: "Already checked in" });
+        setHistory(prev => [{ id: `r_${Date.now()}`, name: finalName, status: "duplicate" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
+      } else {
+        void haptic("success");
+        flashViewport("success");
+        attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
+        pushToast({ type: "success", name: finalName, message: "Attendance marked" });
+        setHistory(prev => [{ id: `r_${Date.now()}`, name: finalName, status: "success" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
+        setScanCount(prev => prev + 1);
+      }
+    } catch (err: any) {
+      console.error(`[FatalScannerTrace] processScan failure:`, err);
+      const msg = (err.message || "").toLowerCase();
+      const isNetworkError = msg.includes("network") || msg.includes("fetch") || err.name === "TimeoutError";
+      const isUnauthorized = err.status === 403 || err.status === 429;
+
+      if (isNetworkError) {
+        const offlineId = `r_${Date.now()}`;
+        setSyncQueue(prev => [...prev, { id: offlineId, payload, timestamp: Date.now() }]);
+        pushToast({ type: "offline", name: "Scan queued", message: "Will sync when online" });
+        setHistory(prev => [{ id: offlineId, name: "Queued", status: "offline" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
+      } else if (isUnauthorized) {
+        void haptic("error");
+        flashViewport("error");
+        pushToast({ type: "unauthorized", name: "Not assigned", message: "You are not assigned to this event" });
+      } else {
+        void haptic("error");
+        flashViewport("error");
+        pushToast({ type: "error", name: "Invalid QR", message: err.message || "QR not recognized" });
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [session, event, userData, haptic, flashViewport, pushToast]);
+
+  const startScanner = useCallback(async () => {
+    if (!videoRef.current) return;
+    setCameraError(null);
+    try {
+      if (scannerRef.current && isScanning) await stopScanner();
+      if (!scannerRef.current) scannerRef.current = getScanner();
+      let perm = await scannerRef.current.checkPermission();
+      if (perm !== "granted") {
+        perm = await scannerRef.current.requestPermission();
+        setPermission(perm);
+        if (perm !== "granted") throw new Error("Camera permission required");
+      }
+      await scannerRef.current.start(videoRef.current, r => void processScan(r));
+      setIsScanning(true);
+    } catch (err: any) {
+      setIsScanning(false);
+      setCameraError(err.message || "Camera access required");
+      await stopScanner();
+    }
+  }, [isScanning, processScan, stopScanner]);
+
   /* ── Auth guard ── */
   useEffect(() => {
     if (!authLoading && !session) router.replace("/auth");
@@ -119,7 +288,7 @@ export default function ScannerClient() {
 
   /* ── Access validation ──
    * The backend /volunteer/events/:eventId/access endpoint is the ONLY authority.
-   * - On 403/auth error → block scanner unconditionally (even if cached event exists)
+   * - On 403/auth error → block scanner unconditionally
    * - On genuine network error → allow cached event as best-effort fallback
    * - Scanner NEVER opens until this resolves successfully
    */
@@ -128,6 +297,7 @@ export default function ScannerClient() {
     if (!eventId || !session?.access_token) {
       setIsChecking(false);
       setAccessError(DENIED_MESSAGE);
+      router.replace("/volunteer");
       return;
     }
 
@@ -146,6 +316,8 @@ export default function ScannerClient() {
         if (res.authorized === false) {
           setEvent(null);
           setAccessError(res.error || DENIED_MESSAGE);
+          pushToast({ type: "error", name: "Access Denied", message: res.error || DENIED_MESSAGE });
+          setTimeout(() => router.replace("/volunteer"), 1500);
           return;
         }
         // Backend confirmed — use backend event data (most up-to-date)
@@ -160,13 +332,13 @@ export default function ScannerClient() {
         });
         if (cancelled) return;
         const msg = (err.message || "").toLowerCase();
-        // Distinguish auth/forbidden errors from transient network failures.
-        // Auth errors must block the scanner — never silently fall through.
+        
         const isNetworkError =
           msg.includes("network") ||
           msg.includes("fetch") ||
           err.name === "TimeoutError" ||
           err.name === "AbortError";
+          
         const isAuthError =
           msg.includes("not assigned") ||
           msg.includes("volunteer access") ||
@@ -179,13 +351,18 @@ export default function ScannerClient() {
           // Hard block — backend explicitly denied access
           setEvent(null);
           setAccessError(err.message || DENIED_MESSAGE);
+          pushToast({ type: "error", name: "Access Denied", message: err.message || DENIED_MESSAGE });
+          setTimeout(() => router.replace("/volunteer"), 1500);
         } else if (isNetworkError && cachedEvent) {
           // Network down — allow cached assignment as best-effort
           setEvent(cachedEvent);
         } else {
           // Unknown error without cache — deny for safety
           setEvent(null);
-          setAccessError("Could not verify your assignment. Please try again.");
+          const fallbackMsg = "Could not verify your assignment. Please try again.";
+          setAccessError(fallbackMsg);
+          pushToast({ type: "error", name: "Error", message: fallbackMsg });
+          setTimeout(() => router.replace("/volunteer"), 1500);
         }
       } finally {
         if (!cancelled) setIsChecking(false);
@@ -193,7 +370,7 @@ export default function ScannerClient() {
     }
     void validate();
     return () => { cancelled = true; };
-  }, [cachedEvent, eventId, authLoading, session]);
+  }, [cachedEvent, eventId, authLoading, session, pushToast, router]);
 
   /* ── Restore session history ── */
   useEffect(() => {
@@ -227,21 +404,6 @@ export default function ScannerClient() {
     localStorage.setItem(`scan_queue_${eventId}`, JSON.stringify(syncQueue));
   }, [syncQueue, eventId]);
 
-  /* ── Toast system ── */
-  const pushToast = useCallback((t: Omit<ScanToast, "id" | "timestamp">) => {
-    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-    setToasts(prev => [{ ...t, id, timestamp: new Date() }, ...prev].slice(0, 3));
-
-    const timer = setTimeout(() => {
-      setToasts(prev => prev.map(x => x.id === id ? { ...x, exiting: true } : x));
-      setTimeout(() => {
-        setToasts(prev => prev.filter(x => x.id !== id));
-        toastTimersRef.current.delete(id);
-      }, 140);
-    }, TOAST_MS[t.type]);
-
-    toastTimersRef.current.set(id, timer);
-  }, []);
 
   /* ── Background offline sync ──
    * Must be declared after pushToast (uses it in the catch path).
@@ -284,222 +446,27 @@ export default function ScannerClient() {
 
   /* ── Scanner lifecycle ── */
   useEffect(() => {
-    console.log(`[FatalScannerTrace] ScannerClient mounted`);
+    if (isChecking || !event || accessError) return;
+
+    console.log(`[FatalScannerTrace] Scanner authorized and mounted`);
     try {
       scannerRef.current = getScanner();
-      void scannerRef.current.checkPermission().then(setPermission);
+      void scannerRef.current.checkPermission().then((perm) => {
+        if (mountedRef.current) setPermission(perm);
+      });
     } catch (err) {
       console.error(`[FatalScannerTrace] getScanner initialization failed on mount:`, err);
     }
     
     return () => {
-      console.log(`[FatalScannerTrace] ScannerClient unmounting, running cleanup`);
+      console.log(`[FatalScannerTrace] Scanner unmounting, running cleanup`);
       void stopScanner();
       toastTimersRef.current.forEach(clearTimeout);
     };
-  }, []);
+  }, [isChecking, event, accessError, stopScanner]);
 
-  const flashViewport = useCallback((s: "success" | "duplicate" | "error") => {
-    setViewportStatus(s);
-    if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
-    viewportTimerRef.current = setTimeout(() => setViewportStatus("idle"), 500);
-  }, []);
-
-  /* ── Haptics ── */
-  const haptic = useCallback(async (type: "success" | "warning" | "error") => {
-    if (isNative) {
-      try {
-        await Haptics.notification({
-          type: type === "success" ? NotificationType.Success
-              : type === "warning" ? NotificationType.Warning
-              : NotificationType.Error,
-        });
-      } catch {}
-    } else if ("vibrate" in navigator) {
-      navigator.vibrate(type === "success" ? [70] : [50, 40, 50]);
-    }
-  }, [isNative]);
-
-  /* ── Core scan processor (backend-authoritative) ──
-   * NO optimistic success. All UX updates (toast, history, count) fire ONLY
-   * after the backend confirms the scan. This prevents false "Marked present"
-   * feedback for unauthorized, invalid, or duplicate scans.
-   */
-  const processScan = useCallback(async (result: ScannerResult) => {
-    if (!session?.access_token || !event) return;
-
-    const qrData = result.data;
-    const now    = Date.now();
-    const last   = cooldownMapRef.current.get(qrData);
-    if (last && now - last < 2500) return;  // Client-side cooldown (UX only, not security)
-    cooldownMapRef.current.set(qrData, now);
-
-    // Local cache duplicate check — avoids redundant API call for recently scanned codes.
-    // Backend will re-verify regardless; this is purely a UX speed optimization.
-    const cached = attendeeCacheRef.current.get(qrData);
-    if (cached?.status === "already_present") {
-      void haptic("warning");
-      flashViewport("duplicate");
-      pushToast({ type: "duplicate", name: cached.name, message: "Already checked in" });
-      return;
-    }
-
-    const payload = {
-      qrCodeData: qrData,
-      volunteerId: userData?.register_number,
-      scannerInfo: {
-        source:    "sociomobilev2",
-        platform:  Capacitor.getPlatform(),
-        format:    result.format,
-        timestamp: new Date().toISOString(),
-      },
-    };
-
-    try {
-      setIsVerifying(true);
-      // Fire request — await before any UX update
-      const res: any = await apiRequest(
-        `/events/${encodeURIComponent(event.event_id)}/scan-qr`,
-        { method: "POST", body: JSON.stringify(payload), cache: "no-store", timeoutMs: 4000 }
-      );
-
-      const participant = res.participant;
-      const finalName   = participant?.name || "Attendee";
-
-      if (participant?.status === "already_present") {
-        // Backend confirmed duplicate
-        void haptic("warning");
-        flashViewport("duplicate");
-        attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
-        pushToast({ type: "duplicate", name: finalName, message: "Already checked in" });
-        setHistory(prev => [{ id: `r_${Date.now()}`, name: finalName, status: "duplicate" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
-      } else {
-        // Backend confirmed success — only NOW update UI
-        void haptic("success");
-        flashViewport("success");
-        attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
-        pushToast({ type: "success", name: finalName, message: "Attendance marked" });
-        setHistory(prev => [{ id: `r_${Date.now()}`, name: finalName, status: "success" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
-        setScanCount(prev => prev + 1);
-      }
-    } catch (err: any) {
-      console.error(`[FatalScannerTrace] processScan failure:`, {
-        error: err,
-        message: err.message,
-        stack: err.stack,
-        status: err.status
-      });
-      const msg = (err.message || "").toLowerCase();
-      const isNetworkError =
-        msg.includes("network") ||
-        msg.includes("fetch") ||
-        err.name === "TimeoutError" ||
-        err.name === "AbortError";
-      const isUnauthorized =
-        msg.includes("volunteer access") ||
-        msg.includes("not assigned") ||
-        msg.includes("too many") ||
-        err.status === 403 ||
-        err.status === 429;
-
-      if (isNetworkError) {
-        // Queue for offline sync — add a pending row to history
-        const offlineId = `r_${Date.now()}`;
-        setSyncQueue(prev => [...prev, { id: offlineId, payload, timestamp: Date.now() }]);
-        pushToast({ type: "offline", name: "Scan queued", message: "Will sync when online" });
-        setHistory(prev => [{ id: offlineId, name: "Queued", status: "offline" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
-      } else if (isUnauthorized) {
-        void haptic("error");
-        flashViewport("error");
-        cooldownMapRef.current.set(qrData, 0); // Allow re-scan in case of transient 403
-        pushToast({ type: "unauthorized", name: "Not assigned", message: "You are not assigned to this event" });
-        setHistory(prev => [{ id: `r_${Date.now()}`, name: "Blocked", status: "unauthorized" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
-      } else {
-        void haptic("error");
-        flashViewport("error");
-        cooldownMapRef.current.set(qrData, 0); // Allow retry for invalid QR
-        pushToast({ type: "error", name: "Invalid QR", message: err.message || "QR not recognized" });
-        setHistory(prev => [{ id: `r_${Date.now()}`, name: "Invalid", status: "error" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
-      }
-    } finally {
-      setIsVerifying(false);
-    }
-  }, [session, event, userData, haptic, flashViewport, pushToast]);
 
   /* ── Camera controls ── */
-  const stopScanner = async () => {
-    console.log(`[FatalScannerTrace] Stopping scanner...`);
-    try {
-      if (scannerRef.current) {
-        await scannerRef.current.stop();
-      }
-      
-      // Hard cleanup of DOM and streams just in case
-      document.body.classList.remove("barcode-scanner-active");
-      if (videoRef.current) {
-        try {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream?.getTracks().forEach(t => t.stop());
-          videoRef.current.srcObject = null;
-        } catch (e) {
-          console.error(`[FatalScannerTrace] Error cleaning up video stream:`, e);
-        }
-      }
-    } catch (err) {
-      console.error(`[FatalScannerTrace] Error during scanner stop:`, err);
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  const startScanner = async () => {
-    if (!videoRef.current) {
-      console.error(`[FatalScannerTrace] Cannot start scanner: videoRef is null`);
-      return;
-    }
-    
-    setCameraError(null);
-    try {
-      console.log(`[FatalScannerTrace] Attempting to start scanner...`);
-      
-      // Ensure any previous scanner is stopped cleanly first
-      if (scannerRef.current && isScanning) {
-        console.log(`[FatalScannerTrace] Found existing active scanner, stopping it first...`);
-        await stopScanner();
-      }
-
-      if (!scannerRef.current) {
-        console.log(`[FatalScannerTrace] Initializing getScanner()...`);
-        scannerRef.current = getScanner();
-      }
-
-      let perm = await scannerRef.current.checkPermission();
-      console.log(`[FatalScannerTrace] Current permission status: ${perm}`);
-      
-      if (perm !== "granted") {
-        console.log(`[FatalScannerTrace] Requesting permission...`);
-        perm = await scannerRef.current.requestPermission();
-        setPermission(perm);
-        if (perm !== "granted") throw new Error("Camera permission required");
-      }
-      
-      console.log(`[FatalScannerTrace] Starting scanner instance...`);
-      await scannerRef.current.start(videoRef.current, r => void processScan(r));
-      setIsScanning(true);
-      console.log(`[FatalScannerTrace] Scanner started successfully`);
-    } catch (err: any) {
-      console.error(`[FatalScannerTrace] Scanner start failure:`, {
-        error: err,
-        message: err.message,
-        stack: err.stack,
-      });
-      setIsScanning(false);
-      setCameraError(err.message || "Camera access required");
-      
-      // Clean up on failure to avoid zombie state
-      await stopScanner();
-    }
-  };
 
   /* ── Status config computation ── */
   const statusConfig = useMemo(() => {
