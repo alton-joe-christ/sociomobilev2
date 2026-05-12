@@ -21,7 +21,17 @@ export default function GlobalError({
       window.location.reload();
     }
 
+    console.error("[SystemInterruptDebug] Uncaught Runtime Error:", {
+      message: error.message,
+      name: error.name,
+      digest: error.digest,
+      stack: error.stack,
+      url: window.location.href,
+      localStorage: { ...localStorage }, // Be careful with secrets, but useful for state debug
+      sessionStorage: { ...sessionStorage },
+    });
     console.error("Uncaught Runtime Error:", error);
+
   }, [error]);
 
   return (

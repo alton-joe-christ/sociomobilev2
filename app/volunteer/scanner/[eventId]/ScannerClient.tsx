@@ -137,6 +137,7 @@ export default function ScannerClient() {
 
     async function validate() {
       try {
+        console.log(`[SystemInterruptDebug] Validating access for event: ${eventId}`);
         const res: any = await apiRequest(
           `/volunteer/events/${encodeURIComponent(eventId)}/access`,
           { cache: "no-store" }
@@ -150,6 +151,13 @@ export default function ScannerClient() {
         // Backend confirmed — use backend event data (most up-to-date)
         setEvent(res.event || cachedEvent);
       } catch (err: any) {
+        console.error(`[SystemInterruptDebug] Access validation failed:`, {
+          error: err,
+          message: err.message,
+          status: err.status,
+          eventId,
+          session: !!session?.access_token,
+        });
         if (cancelled) return;
         const msg = (err.message || "").toLowerCase();
         // Distinguish auth/forbidden errors from transient network failures.
@@ -410,15 +418,23 @@ export default function ScannerClient() {
     if (!videoRef.current || !scannerRef.current) return;
     setCameraError(null);
     try {
+      console.log(`[SystemInterruptDebug] Attempting to start scanner...`);
       let perm = await scannerRef.current.checkPermission();
       if (perm !== "granted") {
+        console.log(`[SystemInterruptDebug] Permission ${perm}, requesting...`);
         perm = await scannerRef.current.requestPermission();
         setPermission(perm);
         if (perm !== "granted") throw new Error("Camera permission required");
       }
       await scannerRef.current.start(videoRef.current, r => void processScan(r));
       setIsScanning(true);
+      console.log(`[SystemInterruptDebug] Scanner started successfully`);
     } catch (err: any) {
+      console.error(`[SystemInterruptDebug] Scanner start failure:`, {
+        error: err,
+        message: err.message,
+        stack: err.stack,
+      });
       setIsScanning(false);
       setCameraError(err.message || "Camera access required");
     }
