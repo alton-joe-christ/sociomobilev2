@@ -94,6 +94,7 @@ export default function ScannerClient() {
   const [syncQueue,    setSyncQueue]    = useState<QueuedScan[]>([]);
   const [scanCount,    setScanCount]    = useState(0);
   const [viewportStatus, setViewportStatus] = useState<"idle"|"success"|"duplicate"|"error">("idle");
+  const [isVerifying,  setIsVerifying]  = useState(false);
 
   /* ── Refs ── */
   const videoRef          = useRef<HTMLVideoElement | null>(null);
@@ -116,7 +117,12 @@ export default function ScannerClient() {
     if (!authLoading && !session) router.replace("/auth");
   }, [authLoading, router, session]);
 
-  /* ── Access validation ── */
+  /* ── Access validation ──
+   * The backend /volunteer/events/:eventId/access endpoint is the ONLY authority.
+   * - On 403/auth error → block scanner unconditionally (even if cached event exists)
+   * - On genuine network error → allow cached event as best-effort fallback
+   * - Scanner NEVER opens until this resolves successfully
+   */
   useEffect(() => {
     if (authLoading) return;
     if (!eventId || !session?.access_token) {
@@ -125,15 +131,11 @@ export default function ScannerClient() {
       return;
     }
 
-    if (cachedEvent) {
-      setEvent(cachedEvent);
-      setIsChecking(false);
-    }
-
     let cancelled = false;
+    setIsChecking(true);
+    setAccessError(null);
+
     async function validate() {
-      if (!cachedEvent) setIsChecking(true);
-      setAccessError(null);
       try {
         const res: any = await apiRequest(
           `/volunteer/events/${encodeURIComponent(eventId)}/access`,
@@ -145,14 +147,37 @@ export default function ScannerClient() {
           setAccessError(res.error || DENIED_MESSAGE);
           return;
         }
+        // Backend confirmed — use backend event data (most up-to-date)
         setEvent(res.event || cachedEvent);
       } catch (err: any) {
-        if (!cancelled) {
-          if (cachedEvent) setEvent(cachedEvent);
-          else {
-            setEvent(null);
-            setAccessError(err.message || "Unable to validate access.");
-          }
+        if (cancelled) return;
+        const msg = (err.message || "").toLowerCase();
+        // Distinguish auth/forbidden errors from transient network failures.
+        // Auth errors must block the scanner — never silently fall through.
+        const isNetworkError =
+          msg.includes("network") ||
+          msg.includes("fetch") ||
+          err.name === "TimeoutError" ||
+          err.name === "AbortError";
+        const isAuthError =
+          msg.includes("not assigned") ||
+          msg.includes("volunteer access") ||
+          msg.includes("archived") ||
+          msg.includes("register") ||
+          err.status === 401 ||
+          err.status === 403;
+
+        if (isAuthError) {
+          // Hard block — backend explicitly denied access
+          setEvent(null);
+          setAccessError(err.message || DENIED_MESSAGE);
+        } else if (isNetworkError && cachedEvent) {
+          // Network down — allow cached assignment as best-effort
+          setEvent(cachedEvent);
+        } else {
+          // Unknown error without cache — deny for safety
+          setEvent(null);
+          setAccessError("Could not verify your assignment. Please try again.");
         }
       } finally {
         if (!cancelled) setIsChecking(false);
@@ -194,39 +219,6 @@ export default function ScannerClient() {
     localStorage.setItem(`scan_queue_${eventId}`, JSON.stringify(syncQueue));
   }, [syncQueue, eventId]);
 
-  /* ── Background sync ── */
-  useEffect(() => {
-    if (syncQueue.length === 0 || !session?.access_token) return;
-    const t = setTimeout(async () => {
-      const remaining: QueuedScan[] = [];
-      for (const item of syncQueue) {
-        try {
-          await apiRequest(`/events/${encodeURIComponent(eventId)}/scan-qr`, {
-            method: "POST",
-            body: JSON.stringify(item.payload),
-            cache: "no-store",
-            timeoutMs: 5000,
-          });
-        } catch {
-          remaining.push(item);
-        }
-      }
-      setSyncQueue(remaining);
-    }, 5000);
-    return () => clearTimeout(t);
-  }, [syncQueue, session, eventId]);
-
-  /* ── Scanner lifecycle ── */
-  useEffect(() => {
-    scannerRef.current = getScanner();
-    void scannerRef.current.checkPermission().then(setPermission);
-    return () => {
-      void scannerRef.current?.stop();
-      document.body.classList.remove("barcode-scanner-active");
-      toastTimersRef.current.forEach(clearTimeout);
-    };
-  }, []);
-
   /* ── Toast system ── */
   const pushToast = useCallback((t: Omit<ScanToast, "id" | "timestamp">) => {
     const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
@@ -243,7 +235,55 @@ export default function ScannerClient() {
     toastTimersRef.current.set(id, timer);
   }, []);
 
-  /* ── Viewport border flash ── */
+  /* ── Background offline sync ──
+   * Must be declared after pushToast (uses it in the catch path).
+   * Distinguishes 403/429 (permanent failures) from network errors (transient).
+   * Unauthorized or rate-limited scans are permanently dropped with visible feedback.
+   */
+  useEffect(() => {
+    if (syncQueue.length === 0 || !session?.access_token) return;
+    const t = setTimeout(async () => {
+      const remaining: QueuedScan[] = [];
+      for (const item of syncQueue) {
+        try {
+          await apiRequest(`/events/${encodeURIComponent(eventId)}/scan-qr`, {
+            method: "POST",
+            body: JSON.stringify(item.payload),
+            cache: "no-store",
+            timeoutMs: 5000,
+          });
+        } catch (err: any) {
+          const msg = (err.message || "").toLowerCase();
+          const isPermanentFailure =
+            msg.includes("not assigned") ||
+            msg.includes("volunteer access") ||
+            msg.includes("too many") ||
+            err.status === 403 ||
+            err.status === 429;
+          if (isPermanentFailure) {
+            // Drop permanently — surface as one toast
+            pushToast({ type: "unauthorized", name: "Sync failed", message: "Volunteer access was revoked" });
+          } else {
+            remaining.push(item); // Retry on transient network errors
+          }
+        }
+      }
+      setSyncQueue(remaining);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [syncQueue, session, eventId, pushToast]);
+
+  /* ── Scanner lifecycle ── */
+  useEffect(() => {
+    scannerRef.current = getScanner();
+    void scannerRef.current.checkPermission().then(setPermission);
+    return () => {
+      void scannerRef.current?.stop();
+      document.body.classList.remove("barcode-scanner-active");
+      toastTimersRef.current.forEach(clearTimeout);
+    };
+  }, []);
+
   const flashViewport = useCallback((s: "success" | "duplicate" | "error") => {
     setViewportStatus(s);
     if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
@@ -265,37 +305,29 @@ export default function ScannerClient() {
     }
   }, [isNative]);
 
-  /* ── Core scan processor ── */
+  /* ── Core scan processor (backend-authoritative) ──
+   * NO optimistic success. All UX updates (toast, history, count) fire ONLY
+   * after the backend confirms the scan. This prevents false "Marked present"
+   * feedback for unauthorized, invalid, or duplicate scans.
+   */
   const processScan = useCallback(async (result: ScannerResult) => {
     if (!session?.access_token || !event) return;
 
     const qrData = result.data;
     const now    = Date.now();
     const last   = cooldownMapRef.current.get(qrData);
-    if (last && now - last < 2500) return;
+    if (last && now - last < 2500) return;  // Client-side cooldown (UX only, not security)
     cooldownMapRef.current.set(qrData, now);
 
-    /* Locally-known duplicate */
+    // Local cache duplicate check — avoids redundant API call for recently scanned codes.
+    // Backend will re-verify regardless; this is purely a UX speed optimization.
     const cached = attendeeCacheRef.current.get(qrData);
     if (cached?.status === "already_present") {
       void haptic("warning");
       flashViewport("duplicate");
-      pushToast({ type: "duplicate", name: cached.name, message: "Already scanned" });
+      pushToast({ type: "duplicate", name: cached.name, message: "Already checked in" });
       return;
     }
-
-    /* Optimistic name extraction */
-    let name = "Attendee";
-    try { const p = JSON.parse(qrData); if (p.name) name = p.name; } catch {}
-
-    /* Optimistic success */
-    const rowId = `r_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-    void haptic("success");
-    flashViewport("success");
-    pushToast({ type: "success", name, message: "Marked present" });
-    setHistory(prev => [{ id: rowId, name, status: "success" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
-    setScanCount(prev => prev + 1);
-    attendeeCacheRef.current.set(qrData, { name, status: "already_present" });
 
     const payload = {
       qrCodeData: qrData,
@@ -309,40 +341,67 @@ export default function ScannerClient() {
     };
 
     try {
+      setIsVerifying(true);
+      // Fire request — await before any UX update
       const res: any = await apiRequest(
         `/events/${encodeURIComponent(event.event_id)}/scan-qr`,
         { method: "POST", body: JSON.stringify(payload), cache: "no-store", timeoutMs: 4000 }
       );
 
       const participant = res.participant;
-      const finalName   = participant?.name || name;
-      attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
+      const finalName   = participant?.name || "Attendee";
 
       if (participant?.status === "already_present") {
+        // Backend confirmed duplicate
         void haptic("warning");
         flashViewport("duplicate");
-        setHistory(prev => prev.map(r => r.id === rowId ? { ...r, name: finalName, status: "duplicate" } : r));
-        pushToast({ type: "duplicate", name: finalName, message: "Already scanned" });
+        attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
+        pushToast({ type: "duplicate", name: finalName, message: "Already checked in" });
+        setHistory(prev => [{ id: `r_${Date.now()}`, name: finalName, status: "duplicate" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
       } else {
-        setHistory(prev => prev.map(r => r.id === rowId ? { ...r, name: finalName } : r));
+        // Backend confirmed success — only NOW update UI
+        void haptic("success");
+        flashViewport("success");
+        attendeeCacheRef.current.set(qrData, { name: finalName, status: "already_present" });
+        pushToast({ type: "success", name: finalName, message: "Attendance marked" });
+        setHistory(prev => [{ id: `r_${Date.now()}`, name: finalName, status: "success" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
+        setScanCount(prev => prev + 1);
       }
     } catch (err: any) {
-      const isNetwork = err.message?.toLowerCase().includes("network")
-        || err.name === "TimeoutError"
-        || err.message?.toLowerCase().includes("fetch");
+      const msg = (err.message || "").toLowerCase();
+      const isNetworkError =
+        msg.includes("network") ||
+        msg.includes("fetch") ||
+        err.name === "TimeoutError" ||
+        err.name === "AbortError";
+      const isUnauthorized =
+        msg.includes("volunteer access") ||
+        msg.includes("not assigned") ||
+        msg.includes("too many") ||
+        err.status === 403 ||
+        err.status === 429;
 
-      if (isNetwork) {
-        setSyncQueue(prev => [...prev, { id: rowId, payload, timestamp: Date.now() }]);
-        pushToast({ type: "offline", name, message: "Will sync when online" });
+      if (isNetworkError) {
+        // Queue for offline sync — add a pending row to history
+        const offlineId = `r_${Date.now()}`;
+        setSyncQueue(prev => [...prev, { id: offlineId, payload, timestamp: Date.now() }]);
+        pushToast({ type: "offline", name: "Scan queued", message: "Will sync when online" });
+        setHistory(prev => [{ id: offlineId, name: "Queued", status: "offline" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
+      } else if (isUnauthorized) {
+        void haptic("error");
+        flashViewport("error");
+        cooldownMapRef.current.set(qrData, 0); // Allow re-scan in case of transient 403
+        pushToast({ type: "unauthorized", name: "Not assigned", message: "You are not assigned to this event" });
+        setHistory(prev => [{ id: `r_${Date.now()}`, name: "Blocked", status: "unauthorized" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
       } else {
         void haptic("error");
         flashViewport("error");
-        attendeeCacheRef.current.delete(qrData);
-        cooldownMapRef.current.set(qrData, 0);
-        setHistory(prev => prev.map(r => r.id === rowId ? { ...r, status: "error" } : r));
-        setScanCount(prev => Math.max(0, prev - 1));
+        cooldownMapRef.current.set(qrData, 0); // Allow retry for invalid QR
         pushToast({ type: "error", name: "Invalid QR", message: err.message || "QR not recognized" });
+        setHistory(prev => [{ id: `r_${Date.now()}`, name: "Invalid", status: "error" as ScanStatus, time: new Date() }, ...prev].slice(0, 50));
       }
+    } finally {
+      setIsVerifying(false);
     }
   }, [session, event, userData, haptic, flashViewport, pushToast]);
 
@@ -371,20 +430,22 @@ export default function ScannerClient() {
   };
 
   /* ── Loading / Error guards ── */
-  if (authLoading || (isChecking && !event)) return <LoadingScreen />;
+  if (authLoading || isChecking) return <LoadingScreen />;
 
   if (!event || accessError) {
     return (
-      <div className="pwa-page flex items-center justify-center bg-white px-6">
+      <div className="pwa-page flex items-center justify-center bg-[var(--color-bg)] px-6">
         <div className="text-center max-w-[300px]">
-          <AlertTriangleIcon size={40} className="mx-auto text-red-500 mb-3" />
-          <h1 className="text-lg font-bold text-slate-900">Access Restricted</h1>
-          <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+          <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-red-50 flex items-center justify-center">
+            <AlertTriangleIcon size={28} className="text-[var(--color-danger)]" />
+          </div>
+          <h1 className="text-[16px] font-bold text-[var(--color-text)]">Access restricted</h1>
+          <p className="mt-2 text-[13px] text-[var(--color-text-muted)] leading-relaxed">
             {accessError || "You don't have access to scan this event."}
           </p>
           <button
             onClick={() => router.replace("/volunteer")}
-            className="mt-6 w-full h-11 bg-slate-900 text-white rounded-xl text-sm font-semibold"
+            className="btn btn-primary w-full mt-5 text-sm"
           >
             Go back
           </button>
@@ -394,6 +455,17 @@ export default function ScannerClient() {
   }
 
   /* ── Main render ── */
+  const statusConfig = useMemo(() => {
+    if (cameraError) return { text: cameraError, tone: "error" as const };
+    if (isVerifying) return { text: "Verifying attendee…", tone: "info" as const };
+    if (!isScanning) return { text: "Ready to scan", tone: "idle" as const };
+    if (viewportStatus === "success") return { text: "Attendance marked", tone: "success" as const };
+    if (viewportStatus === "duplicate") return { text: "Duplicate scan detected", tone: "warning" as const };
+    if (viewportStatus === "error") return { text: "Invalid QR detected", tone: "error" as const };
+    if (syncQueue.length > 0) return { text: `Offline sync pending (${syncQueue.length})`, tone: "warning" as const };
+    return { text: "Scanning active", tone: "active" as const };
+  }, [cameraError, isVerifying, isScanning, viewportStatus, syncQueue.length]);
+
   return (
     <div className={`scan-page${isNative && isScanning ? " scan-native-active" : ""}`}>
 
@@ -439,6 +511,11 @@ export default function ScannerClient() {
 
         <span className="scan-count-badge">{scanCount} scanned</span>
       </header>
+
+      <div className={`scan-status-row scan-status-${statusConfig.tone}`}>
+        <span className="scan-status-dot" />
+        <span className="scan-status-text">{statusConfig.text}</span>
+      </div>
 
       {/* ── Camera Viewport ── */}
       <section
