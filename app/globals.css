@@ -868,6 +868,10 @@ html, body {
   letter-spacing: 0.08em; text-transform: uppercase;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.scan-event-name-header {
+  font-size: 13px; font-weight: 700; color: #f4f8ff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .scan-live-pill {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10px; font-weight: 700; color: #8ee8ff;

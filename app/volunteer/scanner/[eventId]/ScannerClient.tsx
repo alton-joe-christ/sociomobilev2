@@ -552,7 +552,7 @@ export default function ScannerClient() {
         </button>
 
         <div className="scan-header-title">
-          <span className="scan-event-name">Operational scanner</span>
+          <span className="scan-event-name-header">{event.title}</span>
           {isScanning && (
             <span className="scan-live-pill">
               <span className="scan-live-dot" />
@@ -602,7 +602,6 @@ export default function ScannerClient() {
             {!isScanning && (
               <div className="scan-idle-overlay">
                 <CameraIcon size={36} className="scan-idle-icon" />
-                <p className="scan-idle-label">Ready to scan</p>
                 {cameraError && <p className="scan-camera-error">{cameraError}</p>}
                 <button
                   id="start-scanning-btn"
@@ -617,8 +616,6 @@ export default function ScannerClient() {
 
           <div className="scan-terminal-panel">
             <div className="scan-terminal-copy">
-              <span className="scan-terminal-kicker">Live operational scan</span>
-              <p className="scan-terminal-title">Keep the QR code centered in the frame</p>
               <p className="scan-terminal-meta">{statusConfig.text}</p>
             </div>
 
@@ -635,32 +632,6 @@ export default function ScannerClient() {
                   Stop scanning
                 </button>
               )}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Event Info ── */}
-        <section className="scan-event-card" aria-label="Event information">
-          <div className="scan-event-card-top">
-            <div>
-              <p className="scan-event-card-kicker">Current event</p>
-              <h2 className="scan-event-card-title">{event.title}</h2>
-            </div>
-            <span className="scan-event-status">
-              {event.volunteer_assignment ? "Assigned" : "Volunteer"}
-            </span>
-          </div>
-
-          <div className="scan-event-card-grid">
-            <div className="scan-event-card-item">
-              <span className="scan-event-card-label">Date</span>
-              <span className="scan-event-card-value">{formatDateShort(event.event_date)}</span>
-            </div>
-            <div className="scan-event-card-item">
-              <span className="scan-event-card-label">Venue</span>
-              <span className="scan-event-card-value scan-event-card-value-ellipsis">
-                {event.venue || event.campus_hosted_at || "Venue not set"}
-              </span>
             </div>
           </div>
         </section>
