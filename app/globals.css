@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 /* ══════════════════════════════════════════════════
    SOCIO PWA — Premium Event Platform Design System
@@ -824,10 +824,12 @@ html, body {
   flex-direction: column;
   height: 100dvh;
   min-height: 0;
-  padding-bottom: calc(var(--bottom-nav) + var(--safe-bottom) + 8px);
+  /* Account for SOCIO app header (--nav-height) + safe area + bottom nav */
+  padding-top: 0;
+  padding-bottom: calc(var(--bottom-nav) + var(--safe-bottom) + 4px);
   background:
-    radial-gradient(circle at 8% 5%, rgba(106, 162, 255, 0.18), transparent 38%),
-    linear-gradient(180deg, #011450 0%, #000e39 52%, #f4f7ff 52.5%, #f8faff 100%);
+    radial-gradient(circle at 8% 5%, rgba(106, 162, 255, 0.12), transparent 38%),
+    linear-gradient(180deg, #010f3a 0%, #000c2e 48%, #f4f7ff 48.3%, #f8faff 100%);
   overflow: hidden;
 }
 .scan-native-active { background: transparent; }
@@ -843,11 +845,11 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
-  padding-top: var(--safe-top);
-  min-height: calc(var(--safe-top) + 48px);
-  background: linear-gradient(180deg, rgba(0, 18, 80, 0.96) 0%, rgba(1, 24, 96, 0.92) 100%);
-  border-bottom: 1px solid rgba(170, 200, 255, 0.18);
+  /* Safe area + extra 8px breathing room to ensure text never clips */
+  padding: calc(var(--safe-top) + 10px) 14px 10px;
+  min-height: calc(var(--safe-top) + 52px);
+  background: linear-gradient(180deg, rgba(0, 15, 66, 0.98) 0%, rgba(1, 22, 84, 0.95) 100%);
+  border-bottom: 1px solid rgba(170, 200, 255, 0.14);
   flex-shrink: 0;
   z-index: 10;
 }
@@ -896,78 +898,72 @@ html, body {
 .scan-status-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 5px 12px;
-  background: linear-gradient(90deg, rgba(3, 26, 100, 0.92), rgba(2, 35, 128, 0.8));
-  border-bottom: 1px solid rgba(168, 203, 255, 0.2);
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 14px;
+  background: rgba(1, 15, 60, 0.88);
+  border-bottom: 1px solid rgba(168, 203, 255, 0.12);
   flex-shrink: 0;
 }
 .scan-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: rgba(180, 198, 230, 0.95);
+  background: rgba(180, 198, 230, 0.85);
   flex-shrink: 0;
 }
 .scan-status-text {
   font-size: 11px;
-  font-weight: 600;
-  color: #eff6ff;
+  font-weight: 500;
+  color: rgba(220, 232, 255, 0.82);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: 0.01em;
 }
 .scan-status-active .scan-status-dot { background: #7ad8ff; }
 .scan-status-success .scan-status-dot { background: #2adf8d; }
 .scan-status-warning .scan-status-dot { background: #ffc857; }
 .scan-status-error .scan-status-dot { background: #ff7a7a; }
-.scan-status-info .scan-status-dot { background: #7ad8ff; }
-.scan-status-idle .scan-status-dot { background: rgba(201, 218, 243, 0.9); }
-.scan-status-warning .scan-status-text { color: #fff3d1; }
-.scan-status-error .scan-status-text { color: #ffe0e0; }
-.scan-status-success .scan-status-text { color: #d8ffef; }
+.scan-status-info .scan-status-dot { background: #7ad8ff; animation: pulse-soft 1.4s ease infinite; }
+.scan-status-idle .scan-status-dot { background: rgba(180, 200, 235, 0.7); }
+.scan-status-warning .scan-status-text { color: #fff0c4; }
+.scan-status-error .scan-status-text { color: #ffd6d6; }
+.scan-status-success .scan-status-text { color: #c6ffe8; }
 
-.scan-status-info .scan-status-text::after {
-  content: "";
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: #8ee8ff;
-  animation: pulse-soft 1.2s ease infinite;
-}
+/* No pseudo-element needed — dot handles state animation */
 
-/* ── Camera Viewport ── */
+/* ── Camera Viewport — compact, camera-first ── */
 .scan-viewport {
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
-  min-height: clamp(360px, 61dvh, 520px);
+  /* Reduced: was 61dvh, now 50dvh — compact operational feel */
+  min-height: clamp(280px, 50dvh, 420px);
   background:
-    radial-gradient(circle at 50% 0%, rgba(53, 109, 255, 0.18), transparent 42%),
-    linear-gradient(180deg, rgba(0, 13, 58, 0.98) 0%, rgba(0, 10, 42, 0.98) 58%, rgba(242, 246, 255, 0.98) 58.2%, rgba(248, 250, 255, 0.98) 100%);
+    radial-gradient(circle at 50% 0%, rgba(53, 109, 255, 0.14), transparent 40%),
+    linear-gradient(180deg, rgba(0, 12, 50, 0.99) 0%, rgba(0, 9, 38, 0.99) 100%);
   overflow: hidden;
-  border: 1px solid rgba(151, 181, 255, 0.2);
-  transition: border-color 120ms ease, box-shadow 160ms ease;
+  border: 1px solid rgba(151, 181, 255, 0.18);
+  transition: border-color 110ms ease, box-shadow 140ms ease;
   flex-shrink: 0;
-  border-radius: 24px;
-  box-shadow: 0 16px 34px rgba(1, 17, 70, 0.26);
+  border-radius: 20px;
+  box-shadow: 0 10px 28px rgba(1, 14, 58, 0.22);
 }
-.scan-viewport-success   { border-color: rgba(16, 185, 129, 0.45); box-shadow: 0 16px 34px rgba(1, 17, 70, 0.26), 0 0 0 1px rgba(16, 185, 129, 0.12) inset; }
-.scan-viewport-duplicate { border-color: rgba(245, 158, 11, 0.45); }
-.scan-viewport-error     { border-color: rgba(239, 68, 68, 0.45); }
-.scan-viewport-idle      { border-color: rgba(151, 181, 255, 0.2); }
+.scan-viewport-success   { border-color: rgba(16, 185, 129, 0.5); box-shadow: 0 10px 28px rgba(1, 14, 58, 0.22), 0 0 0 1px rgba(16, 185, 129, 0.14) inset; }
+.scan-viewport-duplicate { border-color: rgba(245, 158, 11, 0.5); }
+.scan-viewport-error     { border-color: rgba(239, 68, 68, 0.5); }
+.scan-viewport-idle      { border-color: rgba(151, 181, 255, 0.18); }
 
 .scan-viewport-camera {
   position: relative;
-  min-height: clamp(224px, 43dvh, 360px);
-  flex: 1 1 62%;
+  /* Camera takes ~80% of the viewport height */
+  min-height: clamp(200px, 38dvh, 320px);
+  flex: 1 1 80%;
   background:
-    radial-gradient(circle at 50% 30%, rgba(105, 171, 255, 0.2), transparent 34%),
-    linear-gradient(180deg, rgba(1, 23, 88, 0.98), rgba(0, 10, 40, 0.98));
+    radial-gradient(circle at 50% 28%, rgba(80, 148, 255, 0.16), transparent 32%),
+    linear-gradient(180deg, rgba(1, 20, 76, 0.99), rgba(0, 9, 36, 0.99));
 }
 
 .scan-viewport-glow {
@@ -1026,26 +1022,33 @@ html, body {
   text-align: center; padding: 0 24px;
 }
 
-/* Start scanning button — white on SOCIO navy */
+/* Start scanning button — clean operational feel */
 .scan-start-btn {
-  margin-top: 12px; padding: 11px 22px;
-  background: linear-gradient(135deg, #0f63ff, #0a2f92); color: #ffffff;
-  border: 1px solid rgba(191, 216, 255, 0.4); border-radius: 14px;
-  font-size: 13px; font-weight: 700; cursor: pointer;
-  box-shadow: 0 10px 24px rgba(2, 40, 126, 0.5), 0 0 0 1px rgba(120, 189, 255, 0.08) inset;
+  margin-top: 14px;
+  padding: 10px 28px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #011F7B;
+  border: 1px solid rgba(191, 216, 255, 0.6);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  min-width: 140px;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 100ms ease, transform 120ms ease, box-shadow 140ms ease;
+  transition: opacity 100ms ease, transform 120ms ease;
+  letter-spacing: 0.01em;
 }
-.scan-start-btn:active { opacity: 0.88; transform: scale(0.985); }
+.scan-start-btn:active { opacity: 0.84; transform: scale(0.982); }
 
+/* ── Terminal panel — clean status + stop action ── */
 .scan-terminal-panel {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 14px 15px;
-  background: linear-gradient(180deg, rgba(248, 250, 255, 0.98), rgba(236, 242, 252, 0.98));
-  border-top: 1px solid rgba(198, 211, 233, 0.8);
+  gap: 12px;
+  padding: 10px 14px 11px;
+  background: rgba(247, 250, 255, 0.99);
+  border-top: 1px solid rgba(210, 220, 238, 0.9);
 }
 
 .scan-terminal-copy {
@@ -1053,22 +1056,23 @@ html, body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .scan-terminal-kicker {
+  /* Reserved; not rendered in current flow */
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(73, 94, 140, 0.78);
+  color: rgba(73, 94, 140, 0.7);
 }
 
 .scan-terminal-title {
   margin: 0;
-  font-size: 14px;
-  line-height: 1.28;
-  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 700;
   color: var(--color-text);
 }
 
@@ -1077,37 +1081,39 @@ html, body {
   font-size: 12px;
   line-height: 1.35;
   color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 .scan-terminal-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
 
+/* Camera state badge — minimal, informational */
 .scan-terminal-badge,
 .scan-event-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 6px;
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  background: rgba(226, 232, 240, 0.92);
-  color: rgba(50, 68, 106, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(226, 232, 240, 0.85);
+  color: rgba(60, 80, 120, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .scan-terminal-badge-active {
-  background: rgba(220, 252, 231, 0.96);
-  color: #137a4d;
-  border-color: rgba(16, 185, 129, 0.18);
+  background: rgba(209, 250, 229, 0.92);
+  color: #0d6e45;
+  border-color: rgba(16, 185, 129, 0.16);
 }
 
 .scan-start-btn-inline,
@@ -1119,10 +1125,19 @@ html, body {
 }
 
 .scan-stop-btn-inline {
-  background: linear-gradient(135deg, rgba(124, 27, 42, 0.92), rgba(91, 17, 28, 0.92));
-  border-color: rgba(255, 170, 184, 0.24);
-  padding-inline: 14px;
+  /* Inline stop — compact, not alarming */
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 100ms ease;
 }
+.scan-stop-btn-inline:active { background: rgba(239, 68, 68, 0.16); }
 
 .scan-event-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 255, 0.98));
@@ -1202,18 +1217,18 @@ html, body {
   border-color: rgba(16, 185, 129, 0.18);
 }
 
-/* ── Stop Button ── */
+/* ── Stop Button (floating fallback — not used in inline mode) ── */
 .scan-stop-btn {
   position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-  padding: 6px 16px;
-  background: rgba(100, 24, 36, 0.72); color: rgba(255,232,236,0.94);
-  border: 1px solid rgba(255, 164, 176, 0.35); border-radius: 10px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 6px 18px;
+  background: rgba(20, 10, 40, 0.62); color: rgba(255,230,230,0.92);
+  border: 1px solid rgba(255, 160, 170, 0.28); border-radius: 8px;
+  font-size: 11px; font-weight: 600;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   transition: background 100ms ease;
 }
-.scan-stop-btn:active { background: rgba(119, 33, 48, 0.82); }
+.scan-stop-btn:active { background: rgba(30, 10, 50, 0.8); }
 
 /* ── Toast Stack ── */
 .scan-toast-stack {
@@ -1248,21 +1263,21 @@ html, body {
 .scan-toast-msg  { font-size: 11px; font-weight: 500; color: var(--color-text-muted); }
 .scan-toast-time { font-size: 10px; font-weight: 600; color: var(--color-text-light); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
-/* ── History Section ── */
+/* ── Recent Scans Section ── */
 .scan-history-section {
   flex: 1; display: flex; flex-direction: column;
   min-height: 0;
-  background: linear-gradient(180deg, #f6f9ff 0%, #ffffff 50%);
+  background: #ffffff;
   overflow: hidden;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: 18px;
-  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
 }
 .scan-history-label {
-  font-size: 10px; font-weight: 700; color: #4f6692;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 7px 14px 6px;
-  border-bottom: 1px solid #e6eefc;
+  font-size: 11px; font-weight: 700; color: #5a6e96;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 8px 14px 7px;
+  border-bottom: 1px solid #edf2ff;
   display: flex; align-items: center; gap: 8px;
   margin: 0; flex-shrink: 0;
 }
@@ -1304,35 +1319,41 @@ html, body {
   flex-shrink: 0; font-variant-numeric: tabular-nums;
 }
 
-@media (max-height: 760px) {
-  .scan-viewport { min-height: clamp(320px, 56dvh, 470px); }
-  .scan-viewport-camera { min-height: clamp(200px, 38dvh, 320px); }
-  .scan-header { min-height: calc(var(--safe-top) + 48px); }
-  .scan-status-row { min-height: 28px; padding-top: 4px; padding-bottom: 4px; }
+/* ── Short-screen devices (e.g. compact Android phones) ── */
+@media (max-height: 720px) {
+  .scan-viewport { min-height: clamp(240px, 44dvh, 360px); }
+  .scan-viewport-camera { min-height: clamp(180px, 32dvh, 280px); }
+  .scan-header { min-height: calc(var(--safe-top) + 48px); padding-bottom: 8px; }
+  .scan-status-row { min-height: 24px; padding-top: 3px; padding-bottom: 3px; }
+  .scan-terminal-panel { padding: 8px 12px 9px; }
+  .scan-history-empty { padding: 18px 16px; }
 }
 
-@media (max-width: 420px) {
+@media (max-height: 640px) {
+  .scan-viewport { min-height: clamp(200px, 40dvh, 300px); }
+  .scan-viewport-camera { min-height: clamp(160px, 28dvh, 240px); }
+  .scan-history-section { display: none; } /* hide on very small screens to keep scanner visible */
+}
+
+/* ── Narrow phones ── */
+@media (max-width: 380px) {
   .scan-main-column {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 10px;
+    padding-right: 10px;
   }
-
   .scan-viewport {
-    min-height: clamp(340px, 60dvh, 490px);
-    border-radius: 20px;
+    border-radius: 16px;
   }
-
   .scan-terminal-panel {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
   }
-
   .scan-terminal-actions {
-    align-items: stretch;
+    align-items: center;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: flex-end;
   }
-
   .scan-event-card-grid {
     grid-template-columns: 1fr;
   }

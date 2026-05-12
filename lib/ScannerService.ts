@@ -1,6 +1,5 @@
-import QrScanner from 'qr-scanner';
-import { BarcodeScanner, BarcodeFormat, LensFacing } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
+import { logCapacitorPerfAudit, logCapacitorPerfAuditThrottled, withPerfSpan } from '@/lib/capacitorPerfAudit';
 
 export interface ScannerResult {
   data: string;
@@ -22,8 +21,21 @@ export interface IScanner {
  * Web Implementation using Nimiq QrScanner
  * High performance, Worker-based scanning for PWA
  */
+let qrScannerLibPromise: Promise<typeof import('qr-scanner')> | null = null;
+let mlkitLibPromise: Promise<typeof import('@capacitor-mlkit/barcode-scanning')> | null = null;
+
+async function getQrScannerLib() {
+  if (!qrScannerLibPromise) qrScannerLibPromise = import('qr-scanner');
+  return qrScannerLibPromise;
+}
+
+async function getMlKitLib() {
+  if (!mlkitLibPromise) mlkitLibPromise = import('@capacitor-mlkit/barcode-scanning');
+  return mlkitLibPromise;
+}
+
 class WebScanner implements IScanner {
-  private scanner: QrScanner | null = null;
+  private scanner: (Awaited<ReturnType<typeof getQrScannerLib>>['default']) | null = null;
   private isPaused = false;
 
   async checkPermission(): Promise<PermissionStatus> {
@@ -48,9 +60,9 @@ class WebScanner implements IScanner {
   }
 
   async start(videoElement: HTMLVideoElement, onScan: (result: ScannerResult) => void): Promise<void> {
-    const t0 = performance.now();
-    try {
+    await withPerfSpan('scanner.web.start', async () => {
       if (this.scanner) await this.stop();
+      const { default: QrScanner } = await getQrScannerLib();
 
       this.scanner = new QrScanner(
         videoElement,
@@ -58,34 +70,29 @@ class WebScanner implements IScanner {
           if (this.isPaused) return;
           onScan({
             data: result.data,
-            format: 'QR_CODE', 
+            format: 'QR_CODE',
           });
         },
         {
           preferredCamera: 'environment',
           highlightScanRegion: true,
           highlightCodeOutline: true,
-          maxScansPerSecond: 25, // Increased for "instant" feel
+          maxScansPerSecond: 25,
           calculateScanRegion: (v) => {
-             // ROI Optimization: Focus on the center 70% to reduce processing area
-             const smallestDimension = Math.min(v.videoWidth, v.videoHeight);
-             const scanRegionSize = Math.round(smallestDimension * 0.7);
-             return {
-               x: Math.round((v.videoWidth - scanRegionSize) / 2),
-               y: Math.round((v.videoHeight - scanRegionSize) / 2),
-               width: scanRegionSize,
-               height: scanRegionSize,
-             };
+            const smallestDimension = Math.min(v.videoWidth, v.videoHeight);
+            const scanRegionSize = Math.round(smallestDimension * 0.7);
+            return {
+              x: Math.round((v.videoWidth - scanRegionSize) / 2),
+              y: Math.round((v.videoHeight - scanRegionSize) / 2),
+              width: scanRegionSize,
+              height: scanRegionSize,
+            };
           }
         }
       );
 
       await this.scanner.start();
-      console.log(`🔍 [ScannerPerf] Web Scanner Startup: ${performance.now() - t0}ms`);
-    } catch (err) {
-      console.error('[WebScanner] Start failed:', err);
-      throw err;
-    }
+    });
   }
 
   async stop(): Promise<void> {
@@ -110,10 +117,13 @@ class WebScanner implements IScanner {
  */
 class CapacitorScanner implements IScanner {
   private isPaused = false;
+  private listenerHandle: { remove: () => Promise<void> } | null = null;
+  private static moduleInstallPromise: Promise<void> | null = null;
 
   async checkPermission(): Promise<PermissionStatus> {
     try {
-      const status = await BarcodeScanner.checkPermissions();
+      const { BarcodeScanner } = await getMlKitLib();
+      const status = await withPerfSpan('scanner.native.check-permission', () => BarcodeScanner.checkPermissions());
       return status.camera as PermissionStatus;
     } catch {
       return 'unsupported';
@@ -122,7 +132,8 @@ class CapacitorScanner implements IScanner {
 
   async requestPermission(): Promise<PermissionStatus> {
     try {
-      const status = await BarcodeScanner.requestPermissions();
+      const { BarcodeScanner } = await getMlKitLib();
+      const status = await withPerfSpan('scanner.native.request-permission', () => BarcodeScanner.requestPermissions());
       return status.camera as PermissionStatus;
     } catch {
       return 'denied';
@@ -130,23 +141,33 @@ class CapacitorScanner implements IScanner {
   }
 
   async start(_videoElement: HTMLVideoElement, onScan: (result: ScannerResult) => void): Promise<void> {
-    const t0 = performance.now();
-    try {
-      // For Android: ensures the library is available on device
+    const { BarcodeScanner, BarcodeFormat, LensFacing } = await getMlKitLib();
+    await withPerfSpan('scanner.native.start', async () => {
       if (Capacitor.getPlatform() === 'android') {
-        try {
-          await BarcodeScanner.installGoogleBarcodeScannerModule();
-        } catch (installErr: any) {
-          // Silently handle native module installation messages (e.g. "already installed")
-          console.log('[CapacitorScanner] ML Kit module status:', installErr?.message || installErr);
+        if (!CapacitorScanner.moduleInstallPromise) {
+          CapacitorScanner.moduleInstallPromise = BarcodeScanner.installGoogleBarcodeScannerModule()
+            .then(() => undefined)
+            .catch((installErr: any) => {
+              logCapacitorPerfAudit('scanner.native.module-install', {
+                status: 'skip',
+                reason: installErr?.message || String(installErr),
+              });
+            });
         }
+        await CapacitorScanner.moduleInstallPromise;
       }
 
-      // Start scanning
-      await BarcodeScanner.addListener('barcodesScanned', (event) => {
+      if (this.listenerHandle) {
+        await this.listenerHandle.remove().catch(() => {});
+      }
+
+      this.listenerHandle = await BarcodeScanner.addListener('barcodesScanned', (event) => {
         if (this.isPaused || !event.barcodes.length) return;
         const barcode = event.barcodes[0];
-        console.log(`🔍 [ScannerPerf] Native ML Kit Detected QR`);
+        logCapacitorPerfAuditThrottled('scanner.native.barcode-detected', 1500, {
+          format: barcode.format,
+          hasValue: Boolean(barcode.displayValue),
+        });
         onScan({
           data: barcode.displayValue,
           format: barcode.format,
@@ -158,22 +179,23 @@ class CapacitorScanner implements IScanner {
         lensFacing: LensFacing.Back,
       });
 
-      console.log(`🔍 [ScannerPerf] Native Scanner Startup: ${performance.now() - t0}ms`);
       document.documentElement.classList.add('barcode-scanner-active');
       document.body.classList.add('barcode-scanner-active');
-    } catch (err) {
-      console.error('[CapacitorScanner] Start failed:', err);
-      throw err;
-    }
+    });
   }
 
   async stop(): Promise<void> {
     document.documentElement.classList.remove('barcode-scanner-active');
     document.body.classList.remove('barcode-scanner-active');
     try {
-      await BarcodeScanner.stopScan();
-      await BarcodeScanner.removeAllListeners();
-      console.log('[CapacitorScanner] Scan stopped successfully.');
+      const { BarcodeScanner } = await getMlKitLib();
+      await withPerfSpan('scanner.native.stop', async () => {
+        await BarcodeScanner.stopScan();
+        if (this.listenerHandle) {
+          await this.listenerHandle.remove().catch(() => {});
+          this.listenerHandle = null;
+        }
+      });
     } catch (err) {
       console.error('[CapacitorScanner] Stop failed:', err);
     }
@@ -193,6 +215,7 @@ class CapacitorScanner implements IScanner {
  */
 export const getScanner = (): IScanner => {
   const isNative = Capacitor.isNativePlatform();
+  logCapacitorPerfAudit('scanner.factory', { isNative });
   if (isNative) {
     return new CapacitorScanner();
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 // Capacitor imports are deferred via dynamic import inside useEffect to prevent SSR errors
 import DesktopGate from "@/components/DesktopGate";
@@ -13,6 +13,7 @@ import NativeLaunchController from "@/components/native/NativeLaunchController";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
 import { isCampusDismissedRecently } from "@/components/CampusSelector";
+import { logCapacitorPerfAudit, logMemorySnapshot, startFrameMonitor, startPerfSpan, withPerfSpan } from "@/lib/capacitorPerfAudit";
 
 // Lazy load heavy/secondary components
 const ChatbotFab = dynamic(() => import("@/components/ChatbotFab"), { ssr: false });
@@ -28,9 +29,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const hideBottom = NO_BOTTOM_NAV.some((p) => pathname.startsWith(p));
   const hideTop = NO_TOP_BAR.some((p) => pathname.startsWith(p));
-  const { userData, user, needsCampus, refreshUserData, isAuthenticated } = useAuth();
+  const { userData, needsCampus, refreshUserData } = useAuth();
   const [campusDismissed, setCampusDismissed] = useState(false);
   const [isNative, setIsNative] = useState(false);
+  const previousPathRef = useRef<string>(pathname);
+  const stopFrameMonitorRef = useRef<(() => void) | null>(null);
 
 
   useEffect(() => {
@@ -40,8 +43,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    import("@capacitor/core").then(({ Capacitor }) => {
-      setIsNative(Capacitor.isNativePlatform());
+    void withPerfSpan("appshell.detect-platform", async () => {
+      const { Capacitor } = await import("@capacitor/core");
+      const nativePlatform = Capacitor.isNativePlatform();
+      setIsNative(nativePlatform);
+      logCapacitorPerfAudit("appshell.platform", { nativePlatform, platform: Capacitor.getPlatform() });
     });
   }, []);
 
@@ -50,11 +56,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     const lockOrientation = async () => {
       try {
-        const { Capacitor } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-          const { ScreenOrientation } = await import("@capacitor/screen-orientation");
-          await ScreenOrientation.lock({ orientation: "portrait" });
-        }
+        await withPerfSpan("appshell.lock-orientation", async () => {
+          const { Capacitor } = await import("@capacitor/core");
+          if (Capacitor.isNativePlatform()) {
+            const { ScreenOrientation } = await import("@capacitor/screen-orientation");
+            await ScreenOrientation.lock({ orientation: "portrait" });
+          }
+        });
       } catch (err) {
         console.warn("Capacitor orientation lock failed:", err);
       }
@@ -109,6 +117,33 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
 
   }, [router]);
+
+  useEffect(() => {
+    const prev = previousPathRef.current;
+    if (prev === pathname) return;
+
+    const end = startPerfSpan("appshell.route-transition", { from: prev, to: pathname });
+    stopFrameMonitorRef.current?.();
+    stopFrameMonitorRef.current = startFrameMonitor(`route:${prev}->${pathname}`, 1000);
+    previousPathRef.current = pathname;
+
+    const timer = setTimeout(() => {
+      end({ phase: "settled" });
+      logMemorySnapshot(`route:${pathname}`);
+    }, 320);
+
+    return () => clearTimeout(timer);
+  }, [pathname]);
+
+  useEffect(() => {
+    const end = startPerfSpan("appshell.mount");
+    const timer = setTimeout(() => end({ phase: "initial-render" }), 0);
+    return () => {
+      clearTimeout(timer);
+      stopFrameMonitorRef.current?.();
+      stopFrameMonitorRef.current = null;
+    };
+  }, []);
 
   const handleCampusComplete = (campus: string) => {
     if (campus) refreshUserData();

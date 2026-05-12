@@ -6,6 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { apiRequest } from "@/lib/apiClient";
+import { startPerfSpan } from "@/lib/capacitorPerfAudit";
 
 export interface Notification {
   id: string;
@@ -251,6 +252,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
    * ─────────────────────────────────────────────────────────────────── */
   const fetchNotifications = useCallback(async (isLoadMore = false) => {
     if (!userData?.email) return;
+    const endSpan = startPerfSpan("notifications.fetch", { isLoadMore });
     setIsLoading(true);
 
     const targetPage = isLoadMore ? pageRef.current + 1 : 1;
@@ -291,6 +293,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       console.error("Fetch error", err);
     }
     setIsLoading(false);
+    endSpan({ status: "completed" });
   // Stable deps: only email and token. page is tracked via pageRef.
   // unreadCount is updated via functional setState — never read here.
   }, [userData?.email]);

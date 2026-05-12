@@ -18,6 +18,7 @@ import { signInWithGoogleWeb } from "@/lib/auth/webAuth";
 import { signInWithGoogleNative } from "@/lib/auth/nativeAuth";
 import { apiRequest } from "@/lib/apiClient";
 import { emitAuthTransition } from "@/lib/nativeLaunchState";
+import { logCapacitorPerfAudit, startPerfSpan, withPerfSpan } from "@/lib/capacitorPerfAudit";
 
 /* ── Local-storage helpers for PWA session persistence ── */
 const LS_SESSION_KEY = "socio_pwa_session";
@@ -238,8 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /* Fetch profile from backend */
   const fetchUserData = useCallback(async function fetchUserDataInternal(email: string, retryCount = 0): Promise<UserData | null> {
     const platform = Capacitor.getPlatform();
-    console.time(`🔍 [AuthDebug] ProfileFetch-${email}`);
-    console.log(`[API] endpoint: /users/me, user id: ${email}, platform: ${platform}`);
+    const endSpan = startPerfSpan("auth.fetch-user-data", { email, retryCount, platform });
 
     // Abort controller for timeout
     const controller = new AbortController();
@@ -293,7 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error(`🔍 [AuthDebug] fetchUserData Error: ${e.message}`);
     } finally {
       clearTimeout(timeoutId);
-      console.timeEnd(`🔍 [AuthDebug] ProfileFetch-${email}`);
+      endSpan({ status: "completed" });
     }
 
     if (retryCount < 2) {
@@ -333,107 +333,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Atomic Synchronization Lock
       if (hydrationPromiseRef.current) {
-        console.log(`🔍 [AuthRaceDebug] ensureUser: Sync lock active for ${email}. Awaiting existing promise...`);
+        logCapacitorPerfAudit("auth.ensure-user.waiting-lock", { email });
         await hydrationPromiseRef.current;
         return;
       }
 
-      let resolveLock: () => void;
-      hydrationPromiseRef.current = new Promise((resolve) => {
+      let resolveLock: (() => void) | null = null;
+      hydrationPromiseRef.current = new Promise<void>((resolve) => {
         resolveLock = resolve;
       });
 
-      console.time(`🔍 [AuthDebug] TotalProfileInit-${email}`);
-      console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: START for ${email}`);
-      
-      const orgType = getOrgType(email);
-      let fullName = supaUser.user_metadata?.full_name || supaUser.user_metadata?.name || "";
-      let registerNumber: string | null = null;
-      let course: string | null = null;
-
-      if (orgType === "christ_member") {
-        const domain = email.split("@")[1] || "";
-        const sub = domain.split(".")[0]?.toUpperCase();
-        if (sub && sub !== "CHRISTUNIVERSITY") course = sub;
-        const lastName = supaUser.user_metadata?.last_name?.trim();
-        if (lastName && /^\d+$/.test(lastName)) {
-          registerNumber = lastName;
-        } else if (fullName) {
-          const parts = fullName.split(" ");
-          const last = parts[parts.length - 1]?.trim();
-          if (/^\d+$/.test(last || "")) {
-            registerNumber = last!;
-            fullName = parts.slice(0, -1).join(" ");
-          }
-        }
-      }
+      const endEnsureUserSpan = startPerfSpan("auth.ensure-user", { email });
 
       try {
-        const alreadyProvisioned =
-          typeof window !== "undefined" && localStorage.getItem(USER_PROVISIONED_KEY);
-        if (!alreadyProvisioned) {
-          console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: First provision — POST /users...`);
-          await apiRequest(`/users`, {
-            method: "POST",
-            body: JSON.stringify({
-              user: {
-                id: supaUser.id,
-                email,
-                name: fullName || email.split("@")[0],
-                avatar_url: supaUser.user_metadata?.avatar_url,
-                register_number: registerNumber,
-                course,
-              },
-            }),
-          });
-          if (typeof window !== "undefined") {
-            localStorage.setItem(USER_PROVISIONED_KEY, "1");
+        const orgType = getOrgType(email);
+        let fullName = supaUser.user_metadata?.full_name || supaUser.user_metadata?.name || "";
+        let registerNumber: string | null = null;
+        let course: string | null = null;
+
+        if (orgType === "christ_member") {
+          const domain = email.split("@")[1] || "";
+          const sub = domain.split(".")[0]?.toUpperCase();
+          if (sub && sub !== "CHRISTUNIVERSITY") course = sub;
+          const lastName = supaUser.user_metadata?.last_name?.trim();
+          if (lastName && /^\d+$/.test(lastName)) {
+            registerNumber = lastName;
+          } else if (fullName) {
+            const parts = fullName.split(" ");
+            const last = parts[parts.length - 1]?.trim();
+            if (/^\d+$/.test(last || "")) {
+              registerNumber = last!;
+              fullName = parts.slice(0, -1).join(" ");
+            }
           }
         }
-      } catch (err) {
-        console.error("🔍 [AuthDebug] ensureUser: Setup error:", err);
-        // Don't set provisioned flag on failure — will retry next time
-      }
 
-      console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: Fetching profile...`);
-      const fetchedUser = await fetchUserData(email);
-      
-      if (fetchedUser) {
-        console.log(`🔍 [AuthRaceDebug] ${Date.now()} ensureUser: SUCCESS`);
-        authTimingsRef.current.profileReady = Date.now();
-        setIsAuthReady(true);
-        maybeShowOutsiderWelcome(fetchedUser, supaUser.id);
-      } else {
-        console.warn(`🔍 [AuthDebug] ensureUser: Profile fetch failed. USING FALLBACK HYDRATION.`);
-        const fallbackUser: UserData = {
-          id: supaUser.id,
-          email: supaUser.email!,
-          name: supaUser.user_metadata?.full_name || supaUser.user_metadata?.name || supaUser.email!.split("@")[0],
-          avatar_url: supaUser.user_metadata?.avatar_url || null,
-          organization_type: getOrgType(supaUser.email!),
-          register_number: registerNumber,
-          course: course,
-          campus: null,
-          department: null,
-          is_organiser: false,
-          is_support: false,
-          is_masteradmin: false,
-          visitor_id: null,
-          outsider_name_edit_used: false,
-          created_at: new Date().toISOString(),
-          roles: {},
-          volunteerEvents: []
-        };
+        try {
+          const alreadyProvisioned =
+            typeof window !== "undefined" && localStorage.getItem(USER_PROVISIONED_KEY);
+          if (!alreadyProvisioned) {
+            await withPerfSpan("auth.ensure-user.provision", async () => {
+              await apiRequest(`/users`, {
+                method: "POST",
+                body: JSON.stringify({
+                  user: {
+                    id: supaUser.id,
+                    email,
+                    name: fullName || email.split("@")[0],
+                    avatar_url: supaUser.user_metadata?.avatar_url,
+                    register_number: registerNumber,
+                    course,
+                  },
+                }),
+              });
+            }, { email });
+
+            if (typeof window !== "undefined") {
+              localStorage.setItem(USER_PROVISIONED_KEY, "1");
+            }
+          }
+        } catch (err) {
+          console.error("🔍 [AuthDebug] ensureUser: Setup error:", err);
+          // Don't set provisioned flag on failure — will retry next time
+        }
+
+        const fetchedUser = await fetchUserData(email);
         
-        setUserData(fallbackUser);
-        persistUserDataToLS(fallbackUser);
-        authTimingsRef.current.profileReady = Date.now();
-        setIsAuthReady(true);
+        if (fetchedUser) {
+          authTimingsRef.current.profileReady = Date.now();
+          setIsAuthReady(true);
+          maybeShowOutsiderWelcome(fetchedUser, supaUser.id);
+        } else {
+          console.warn(`🔍 [AuthDebug] ensureUser: Profile fetch failed. USING FALLBACK HYDRATION.`);
+          const fallbackUser: UserData = {
+            id: supaUser.id,
+            email: supaUser.email!,
+            name: supaUser.user_metadata?.full_name || supaUser.user_metadata?.name || supaUser.email!.split("@")[0],
+            avatar_url: supaUser.user_metadata?.avatar_url || null,
+            organization_type: getOrgType(supaUser.email!),
+            register_number: registerNumber,
+            course: course,
+            campus: null,
+            department: null,
+            is_organiser: false,
+            is_support: false,
+            is_masteradmin: false,
+            visitor_id: null,
+            outsider_name_edit_used: false,
+            created_at: new Date().toISOString(),
+            roles: {},
+            volunteerEvents: []
+          };
+          
+          setUserData(fallbackUser);
+          persistUserDataToLS(fallbackUser);
+          authTimingsRef.current.profileReady = Date.now();
+          setIsAuthReady(true);
+        }
+      } finally {
+        endEnsureUserSpan({ status: "completed" });
+        hydrationPromiseRef.current = null;
+        resolveLock?.();
       }
-      
-      console.timeEnd(`🔍 [AuthDebug] TotalProfileInit-${email}`);
-      hydrationPromiseRef.current = null;
-      resolveLock!();
     },
     [fetchUserData, maybeShowOutsiderWelcome]
   );
@@ -475,6 +476,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function handleDeepLink(incomingUrl: string) {
       const now = Date.now();
       console.log(`🔍 [AuthRaceDebug] ${now} [DeepLink] Received: ${incomingUrl}`);
+      const endDeepLinkSpan = startPerfSpan("auth.handle-deeplink", { incomingUrl });
       isProcessingDeepLink.current = true;
       setIsLoading(true);
 
@@ -538,6 +540,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err: any) {
         console.error(`🔍 [AuthRaceDebug] ${Date.now()} [DeepLink] CRITICAL:`, err);
       } finally {
+        endDeepLinkSpan({ status: "completed" });
         isProcessingDeepLink.current = false;
         if (mounted) setIsLoading(false);
       }
@@ -546,7 +549,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function bootstrap() {
       if (typeof window === "undefined") return;
 
-      console.log(`🔍 [AuthRaceDebug] ${Date.now()} Bootstrap: Starting sequence...`);
+      const endBootstrapSpan = startPerfSpan("auth.bootstrap");
       try {
         authTimingsRef.current.start = Date.now();
 
@@ -612,6 +615,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("Auth bootstrap failed", err);
       } finally {
+        endBootstrapSpan({ status: "completed" });
         if (mounted) {
           console.log(`🔍 [AuthRaceDebug] ${Date.now()} Bootstrap: Sequence finished.`);
           setIsLoading(false);
@@ -635,6 +639,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, s) => {
       if (!mounted) return;
       console.log(`🔍 [AuthRaceDebug] ${Date.now()} onAuthStateChange: Event=${event}, SessionPresent=${!!s}`);
+      logCapacitorPerfAudit("auth.state-change", { event, sessionPresent: !!s });
       emitAuthTransition(event, event === "SIGNED_OUT" ? "Switching profiles…" : event === "SIGNED_IN" ? "Restoring profile…" : "Refreshing session…");
 
       setSession(s);

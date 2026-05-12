@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react";
 import { apiRequest } from "@/lib/apiClient";
+import { startPerfSpan } from "@/lib/capacitorPerfAudit";
 
 /* ── Types ── */
 export interface FetchedEvent {
@@ -185,6 +186,7 @@ export function EventProvider({
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const refreshEvents = useCallback(async (silent = false) => {
+    const endSpan = startPerfSpan("events.refresh", { silent });
     if (!silent) setIsLoading(true);
     setError(null);
     try {
@@ -200,6 +202,7 @@ export function EventProvider({
       if (!silent) setError(err.message || "Failed to fetch events");
     } finally {
       if (!silent) setIsLoading(false);
+      endSpan({ status: "completed" });
     }
   }, []);
 

@@ -22,6 +22,7 @@ import {
 import { Capacitor } from "@capacitor/core";
 import { Haptics, NotificationType } from "@capacitor/haptics";
 import { startRecoveryTransition, stopRecoveryTransition } from "@/lib/nativeLaunchState";
+import { logCapacitorPerfAudit, logMemorySnapshot, startPerfSpan, withPerfSpan } from "@/lib/capacitorPerfAudit";
 
 const DENIED_MESSAGE = "You do not have permission to access this feature";
 
@@ -118,7 +119,13 @@ export default function ScannerClient() {
   /* ── Component Lifecycle ── */
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
+      toastTimersRef.current.forEach(clearTimeout);
+      stopRecoveryTransition("scanner-verify");
+      logMemorySnapshot("scanner-unmount");
+    };
   }, []);
 
   /* ── UX & Toast system ── */
@@ -160,7 +167,7 @@ export default function ScannerClient() {
 
   /* ── Camera controls ── */
   const stopScanner = useCallback(async () => {
-    console.log(`[FatalScannerTrace] Stopping scanner...`);
+    const end = startPerfSpan("scanner.client.stop");
     try {
       if (scannerRef.current) {
         await scannerRef.current.stop();
@@ -181,6 +188,7 @@ export default function ScannerClient() {
       console.error(`[FatalScannerTrace] Error during scanner stop:`, err);
     } finally {
       setIsScanning(false);
+      end({ status: "completed" });
     }
   }, []);
 
@@ -219,9 +227,11 @@ export default function ScannerClient() {
 
     try {
       setIsVerifying(true);
-      const res: any = await apiRequest(
-        `/events/${encodeURIComponent(event.event_id)}/scan-qr`,
-        { method: "POST", body: JSON.stringify(payload), cache: "no-store", timeoutMs: 4000 }
+      const res: any = await withPerfSpan("scanner.verify.request", async () =>
+        apiRequest(
+          `/events/${encodeURIComponent(event.event_id)}/scan-qr`,
+          { method: "POST", body: JSON.stringify(payload), cache: "no-store", timeoutMs: 4000 }
+        ), { eventId: event.event_id }
       );
       clearTimeout(recoveryTimer);
       stopRecoveryTransition("scanner-verify");
@@ -276,16 +286,19 @@ export default function ScannerClient() {
     if (!videoRef.current) return;
     setCameraError(null);
     try {
-      if (scannerRef.current && isScanning) await stopScanner();
-      if (!scannerRef.current) scannerRef.current = getScanner();
-      let perm = await scannerRef.current.checkPermission();
-      if (perm !== "granted") {
-        perm = await scannerRef.current.requestPermission();
-        setPermission(perm);
-        if (perm !== "granted") throw new Error("Camera permission required");
-      }
-      await scannerRef.current.start(videoRef.current, r => void processScan(r));
+      await withPerfSpan("scanner.client.start", async () => {
+        if (scannerRef.current && isScanning) await stopScanner();
+        if (!scannerRef.current) scannerRef.current = getScanner();
+        let perm = await scannerRef.current.checkPermission();
+        if (perm !== "granted") {
+          perm = await scannerRef.current.requestPermission();
+          setPermission(perm);
+          if (perm !== "granted") throw new Error("Camera permission required");
+        }
+        await scannerRef.current.start(videoRef.current!, r => void processScan(r));
+      }, { isNative });
       setIsScanning(true);
+      logMemorySnapshot("scanner-started");
     } catch (err: any) {
       setIsScanning(false);
       console.error(`[FatalScannerTrace] Scanner start error:`, err);
@@ -307,6 +320,41 @@ export default function ScannerClient() {
       await stopScanner();
     }
   }, [isScanning, processScan, stopScanner]);
+
+  useEffect(() => {
+    let appStateHandle: { remove: () => Promise<void> } | null = null;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && isScanning) {
+        void stopScanner();
+        logCapacitorPerfAudit("scanner.lifecycle.visibility-hidden-stop");
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    if (isNative) {
+      void (async () => {
+        try {
+          const { App } = await import("@capacitor/app");
+          appStateHandle = await App.addListener("appStateChange", ({ isActive }) => {
+            if (!isActive && isScanning) {
+              void stopScanner();
+              logCapacitorPerfAudit("scanner.lifecycle.app-background-stop");
+            }
+          });
+        } catch (error) {
+          console.warn("[ScannerLifecycle] App state listener unavailable:", error);
+        }
+      })();
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (appStateHandle) {
+        appStateHandle.remove().catch(() => {});
+      }
+    };
+  }, [isNative, isScanning, stopScanner]);
 
   /* ── Auth guard ── */
   useEffect(() => {
@@ -333,6 +381,7 @@ export default function ScannerClient() {
     setAccessError(null);
 
     async function validate() {
+      const endValidateSpan = startPerfSpan("scanner.access-validate", { eventId });
       try {
         console.log(`[SystemInterruptDebug] Validating access for event: ${eventId}`);
         const res: any = await apiRequest(
@@ -393,6 +442,7 @@ export default function ScannerClient() {
         }
       } finally {
         if (!cancelled) setIsChecking(false);
+        endValidateSpan({ status: cancelled ? "cancelled" : "completed" });
       }
     }
     void validate();
@@ -443,12 +493,14 @@ export default function ScannerClient() {
       const remaining: QueuedScan[] = [];
       for (const item of syncQueue) {
         try {
-          await apiRequest(`/events/${encodeURIComponent(eventId)}/scan-qr`, {
-            method: "POST",
-            body: JSON.stringify(item.payload),
-            cache: "no-store",
-            timeoutMs: 5000,
-          });
+          await withPerfSpan("scanner.sync-item", () =>
+            apiRequest(`/events/${encodeURIComponent(eventId)}/scan-qr`, {
+              method: "POST",
+              body: JSON.stringify(item.payload),
+              cache: "no-store",
+              timeoutMs: 5000,
+            }), { eventId }
+          );
         } catch (err: any) {
           console.error(`[FatalScannerTrace] Background sync failure for item ${item.id}:`, err);
           const msg = (err.message || "").toLowerCase();
@@ -584,7 +636,7 @@ export default function ScannerClient() {
         <span className="scan-status-text">{statusConfig.text}</span>
       </div>
 
-      <div className="scan-main-column px-4 pt-4 pb-6 max-w-[480px] mx-auto space-y-4">
+      <div className="scan-main-column px-4 pt-3 pb-4 max-w-[480px] mx-auto space-y-3">
         {/* ── Camera Viewport ── */}
         <section
           id="scan-viewport"
@@ -631,12 +683,14 @@ export default function ScannerClient() {
 
           <div className="scan-terminal-panel">
             <div className="scan-terminal-copy">
-              <p className="scan-terminal-meta">{statusConfig.text}</p>
+              {isScanning && (
+                <p className="scan-terminal-meta">Align QR code within the frame</p>
+              )}
             </div>
 
             <div className="scan-terminal-actions">
               <span className={`scan-terminal-badge${isScanning ? " scan-terminal-badge-active" : ""}`}>
-                {isScanning ? "Camera live" : "Camera idle"}
+                {isScanning ? "Active" : "Ready"}
               </span>
               {isScanning && (
                 <button
@@ -644,7 +698,7 @@ export default function ScannerClient() {
                   aria-label="Stop scanning"
                   onClick={() => void stopScanner()}
                 >
-                  Stop scanning
+                  Stop
                 </button>
               )}
             </div>

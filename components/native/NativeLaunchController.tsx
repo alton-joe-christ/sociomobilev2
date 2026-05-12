@@ -15,6 +15,7 @@ import {
   type RecoveryReason,
 } from "@/lib/nativeLaunchState";
 import { NativeMicroSplash, NativeOnboardingOverlay, type NativeTransitionVariant } from "@/components/native/NativeOnboardingOverlay";
+import { logCapacitorPerfAudit, startFrameMonitor, startPerfSpan } from "@/lib/capacitorPerfAudit";
 
 type TransitionMode = "pending" | "none" | "micro-splash" | "full-intro" | "account-transition" | "micro-recovery";
 
@@ -199,6 +200,7 @@ export default function NativeLaunchController() {
     recoveryVisibleSinceRef.current = now;
     setMessage(nextMessage);
     setMode("micro-recovery");
+    logCapacitorPerfAudit("transition.micro-recovery.show", { reason, nextMessage });
   };
 
   const stopMicroRecoveryReason = (reason: RecoveryReason) => {
@@ -221,6 +223,7 @@ export default function NativeLaunchController() {
     setMessage(nextMessage);
     setAccentPulse(true);
     setMode("account-transition");
+    logCapacitorPerfAudit("transition.account.show", { nextMessage, native: isNativeAndroid });
 
     const duration = isNativeAndroid ? ACCOUNT_TRANSITION_MS_NATIVE : ACCOUNT_TRANSITION_MS_WEB;
     setTimeout(() => closeActiveTransition("none"), duration);
@@ -231,15 +234,28 @@ export default function NativeLaunchController() {
   }, [mode]);
 
   useEffect(() => {
+    const stopFrameMonitor = startFrameMonitor("native-transition.initial", 900);
     if (shouldShowNativeOnboarding()) {
       setMode("full-intro");
-      return;
+      logCapacitorPerfAudit("transition.full-intro.eligible");
+      return () => stopFrameMonitor();
     }
 
     setMode("micro-splash");
     const splashTimer = setTimeout(() => setMode("none"), isNativeAndroid ? SPLASH_MS_NATIVE : SPLASH_MS_WEB);
-    return () => clearTimeout(splashTimer);
+    return () => {
+      clearTimeout(splashTimer);
+      stopFrameMonitor();
+    };
   }, [isNativeAndroid]);
+
+  useEffect(() => {
+    if (mode !== "full-intro") return;
+    const endIntroSpan = startPerfSpan("transition.full-intro.runtime");
+    return () => {
+      endIntroSpan({ status: "disposed" });
+    };
+  }, [mode]);
 
   useEffect(() => {
     if (mode !== "full-intro") return;
@@ -247,6 +263,7 @@ export default function NativeLaunchController() {
 
     const fallbackTimer = setTimeout(() => {
       if (cancelled) return;
+      logCapacitorPerfAudit("transition.full-intro.failsafe-close");
       markNativeOnboardingCompleted();
       closeActiveTransition("none");
     }, FULL_INTRO_MAX_MS);
