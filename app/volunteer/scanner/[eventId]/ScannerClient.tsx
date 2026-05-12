@@ -58,10 +58,10 @@ export default function ScannerClient() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   
   // Advanced State
-  const [notifications, setNotifications] = useState<HistoryItem[]>([]);
   const [syncQueue, setSyncQueue] = useState<QueuedScan[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [showSuccessGlow, setShowSuccessGlow] = useState(false);
+  const [activeScanResult, setActiveScanResult] = useState<HistoryItem | null>(null);
+  const [viewportFlash, setViewportFlash] = useState<"success" | "already_present" | "error" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Refs
@@ -232,11 +232,15 @@ export default function ScannerClient() {
     } catch (e) {}
   }, [isNative]);
 
-  const addNotification = (item: HistoryItem) => {
-    setNotifications(prev => [item, ...prev].slice(0, 3));
+  const triggerPopup = (item: HistoryItem) => {
+    setActiveScanResult(item);
+    setViewportFlash(item.status);
+    
+    // Clear popup after 2 seconds
     setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== item.id));
-    }, 4000);
+      setActiveScanResult(null);
+      setViewportFlash(null);
+    }, 2000);
   };
 
   const processScan = async (scanResult: ScannerResult) => {
@@ -266,22 +270,20 @@ export default function ScannerClient() {
 
     if (isLocallyPresent) {
        void triggerFeedback("warning");
-       const item: HistoryItem = { id: Math.random().toString(), qrData: qrCodeData, name: optimisticName, status: "already_present", time: new Date(), message: "Duplicate" };
-       addNotification(item);
+       const item: HistoryItem = { id: Math.random().toString(), qrData: qrCodeData, name: optimisticName, status: "already_present", time: new Date(), message: "Duplicate Scan" };
+       triggerPopup(item);
        return;
     }
 
     // [OPTIMISTIC SUCCESS]
     attendeeCacheRef.current.set(qrCodeData, { name: optimisticName, status: "already_present" });
     void triggerFeedback("success");
-    setShowSuccessGlow(true);
-    setTimeout(() => setShowSuccessGlow(false), 600);
 
     const historyId = Math.random().toString(36).substr(2, 9);
-    const optimisticItem: HistoryItem = { id: historyId, qrData: qrCodeData, name: optimisticName, status: "success", time: new Date(), message: "Pending sync..." };
+    const optimisticItem: HistoryItem = { id: historyId, qrData: qrCodeData, name: optimisticName, status: "success", time: new Date(), message: "Verifying..." };
     
     setHistory(prev => [optimisticItem, ...prev].slice(0, 50)); 
-    addNotification(optimisticItem);
+    triggerPopup(optimisticItem);
     
     const payload = {
       qrCodeData,
@@ -303,12 +305,15 @@ export default function ScannerClient() {
       const finalName = participant?.name || optimisticName;
 
       attendeeCacheRef.current.set(qrCodeData, { name: finalName, status: "already_present" });
-      const updatedItem: HistoryItem = { ...optimisticItem, name: finalName, status: isAlreadyPresent ? "already_present" : "success", message: isAlreadyPresent ? "Already confirmed" : "Attendance marked" };
+      const updatedItem: HistoryItem = { ...optimisticItem, name: finalName, status: isAlreadyPresent ? "already_present" : "success", message: isAlreadyPresent ? "Already Confirmed" : "Attendance Marked" };
       
       setHistory(prev => prev.map(item => item.id === historyId ? updatedItem : item));
-      setNotifications(prev => prev.map(item => item.id === historyId ? updatedItem : item));
+      if (activeScanResult?.id === historyId) setActiveScanResult(updatedItem);
       
-      if (isAlreadyPresent) void triggerFeedback("warning");
+      if (isAlreadyPresent) {
+        void triggerFeedback("warning");
+        setViewportFlash("already_present");
+      }
     } catch (err: any) {
       // Add to background sync queue if it was a network error
       const isNetworkError = err.message?.includes("Network") || err.name === "TimeoutError" || err.message?.includes("failed to fetch");
@@ -321,7 +326,7 @@ export default function ScannerClient() {
         void triggerFeedback("error");
         const errorItem: HistoryItem = { ...optimisticItem, status: "error", message: err.message || "Invalid QR" };
         setHistory(prev => prev.map(item => item.id === historyId ? errorItem : item));
-        setNotifications(prev => prev.map(item => item.id === historyId ? errorItem : item));
+        triggerPopup(errorItem);
       }
     }
   };
@@ -423,7 +428,11 @@ export default function ScannerClient() {
             playsInline
           />
 
-          {showSuccessGlow && <div className="scanner-success-glow" />}
+          {/* Viewport Flash Overlays */}
+          <motion.div 
+            animate={{ opacity: viewportFlash ? 1 : 0 }}
+            className={`viewport-flash flash-${viewportFlash === 'already_present' ? 'warning' : viewportFlash}`} 
+          />
           
           <AnimatePresence>
             {!isScanning && (
@@ -434,12 +443,12 @@ export default function ScannerClient() {
                 <div className="w-20 h-20 rounded-3xl bg-white/10 flex items-center justify-center mb-6 border border-white/10 shadow-2xl">
                   <CameraIcon size={40} className="text-white" />
                 </div>
-                <h3 className="text-lg font-black tracking-tight">Event Terminal v2.0</h3>
+                <h3 className="text-lg font-black tracking-tight">Terminal Standby</h3>
                 <p className="text-xs text-white/50 mt-2 leading-relaxed max-w-[220px] font-medium">
                   Continuous high-speed scanning mode. Align attendee QR in guides.
                 </p>
-                <button onClick={startScanner} className="mt-8 px-8 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 shadow-emerald-500/20">
-                  Activate Scanner
+                <button onClick={startScanner} className="mt-8 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 shadow-blue-600/20">
+                  Activate Terminal
                 </button>
               </motion.div>
             )}
@@ -448,11 +457,7 @@ export default function ScannerClient() {
           {/* Premium Operational Guides */}
           {isScanning && (
             <>
-              <div className="scanner-guide-corner guide-tl" />
-              <div className="scanner-guide-corner guide-tr" />
-              <div className="scanner-guide-corner guide-bl" />
-              <div className="scanner-guide-corner guide-br" />
-              <div className="scanner-roi-box border-emerald-500/20" />
+              <div className="scanner-roi-box" />
               <div className="scanner-laser-premium" />
             </>
           )}
@@ -551,40 +556,35 @@ export default function ScannerClient() {
         </section>
       </div>
 
-      {/* Advanced Professional Toast Stack */}
-      <div className="toast-stack">
-        <AnimatePresence mode="popLayout">
-          {notifications.map((item) => (
+      {/* Centered Scan Popup */}
+      <AnimatePresence>
+        {activeScanResult && (
+          <div className="scanner-popup-container">
             <motion.div 
-              key={item.id}
-              initial={{ y: 20, opacity: 0, scale: 0.9, filter: 'blur(10px)' }} 
-              animate={{ y: 0, opacity: 1, scale: 1, filter: 'blur(0px)' }} 
-              exit={{ opacity: 0, scale: 0.8, x: 20, filter: 'blur(10px)' }}
-              className="toast-bubble"
+              initial={{ scale: 0.8, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: -20 }}
+              className="scanner-popup"
             >
-              <div className={`toast-icon shadow-lg ${
-                item.status === 'success' ? 'bg-emerald-500 text-white' :
-                item.status === 'already_present' ? 'bg-amber-500 text-white' :
-                'bg-red-500 text-white'
+              <div className={`popup-icon-wrapper popup-${activeScanResult.status === 'already_present' ? 'warning' : activeScanResult.status}`}>
+                {activeScanResult.status === 'success' ? <CheckCircleIcon size={32} /> :
+                 activeScanResult.status === 'already_present' ? <AlertTriangleIcon size={32} /> :
+                 <XIcon size={32} />}
+              </div>
+              <h2 className="text-xl font-black text-slate-900 leading-tight truncate w-full px-2">
+                {activeScanResult.name}
+              </h2>
+              <p className={`text-xs font-black uppercase tracking-[0.15em] mt-2 ${
+                activeScanResult.status === 'success' ? 'text-emerald-500' :
+                activeScanResult.status === 'already_present' ? 'text-amber-500' :
+                'text-red-500'
               }`}>
-                {item.status === 'error' ? <XIcon size={20} /> : 
-                 item.status === 'already_present' ? <AlertTriangleIcon size={20} /> : <CheckCircleIcon size={20} />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-black leading-none text-white truncate tracking-tight">{item.name}</p>
-                <p className={`text-[10px] font-black mt-1.5 uppercase tracking-[0.1em] ${
-                  item.status === 'success' ? 'text-emerald-400' :
-                  item.status === 'already_present' ? 'text-amber-400' :
-                  'text-red-400'
-                }`}>{item.message}</p>
-              </div>
-              <div className="text-[10px] font-bold text-white/30 tabular-nums">
-                 {item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </div>
+                {activeScanResult.message}
+              </p>
             </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
