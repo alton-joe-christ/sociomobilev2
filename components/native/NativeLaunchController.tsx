@@ -143,6 +143,7 @@ export default function NativeLaunchController() {
   const finalizedRef = useRef(false);
   const firstStableAuthRef = useRef(false);
   const prevSessionIdRef = useRef<string | null>(null);
+  const modeRef = useRef<TransitionMode>("pending");
 
   const progress = useMemo(() => {
     const done = Number(steps.authReady) + Number(steps.scannerReady) + Number(steps.eventsReady) + Number(steps.storageReady);
@@ -171,7 +172,7 @@ export default function NativeLaunchController() {
 
   const maybeShowMicroRecovery = (nextMessage: string, reason: RecoveryReason) => {
     const now = Date.now();
-    if (mode === "full-intro" || mode === "account-transition") return;
+    if (modeRef.current === "full-intro" || modeRef.current === "account-transition") return;
     if (now - lastRecoveryShownRef.current < RECOVERY_COOLDOWN_MS) return;
 
     activeRecoveryReasonsRef.current.add(reason);
@@ -205,6 +206,10 @@ export default function NativeLaunchController() {
     const duration = isNativeAndroid ? ACCOUNT_TRANSITION_MS_NATIVE : ACCOUNT_TRANSITION_MS_WEB;
     setTimeout(() => closeActiveTransition("none"), duration);
   };
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   useEffect(() => {
     if (shouldShowNativeOnboarding()) {
@@ -364,8 +369,8 @@ export default function NativeLaunchController() {
   }, [mode]);
 
   useEffect(() => {
-    if (mode === "full-intro") return;
     if (pendingAuthTimerRef.current) clearTimeout(pendingAuthTimerRef.current);
+    if (mode === "full-intro") return;
 
     if (authLoading) {
       pendingAuthTimerRef.current = setTimeout(
@@ -380,8 +385,8 @@ export default function NativeLaunchController() {
   }, [authLoading, mode]);
 
   useEffect(() => {
-    if (mode === "full-intro" || isScannerRoute) return;
     if (pendingEventsTimerRef.current) clearTimeout(pendingEventsTimerRef.current);
+    if (mode === "full-intro" || isScannerRoute) return;
 
     if (eventsLoading) {
       pendingEventsTimerRef.current = setTimeout(

@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import { getActiveVolunteerEvents } from "@/lib/volunteerAccess";
 import { apiRequest } from "@/lib/apiClient";
+import { formatDateShort } from "@/lib/dateUtils";
 import {
   getScanner,
   type IScanner,
