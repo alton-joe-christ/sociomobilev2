@@ -156,7 +156,6 @@ export default function VolunteerDashboardPage() {
 
           {/* Name */}
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-[var(--color-text-muted)] font-medium">Volunteer</p>
             <p className="text-[14px] font-bold text-[var(--color-text)] truncate leading-tight">
               {userData?.name || "Volunteer"}
             </p>
@@ -235,11 +234,19 @@ export default function VolunteerDashboardPage() {
                   className="card bg-white border border-[var(--color-border)] overflow-hidden"
                 >
                   {/* Card body — tappable */}
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() =>
                       router.push(`/volunteer/scanner/${encodeURIComponent(event.event_id)}`)
                     }
-                    className="w-full text-left p-4 active:bg-slate-50 transition-colors"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(`/volunteer/scanner/${encodeURIComponent(event.event_id)}`);
+                      }
+                    }}
+                    className="w-full text-left p-4 active:bg-slate-50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start gap-3">
                       {/* Icon */}
@@ -273,13 +280,6 @@ export default function VolunteerDashboardPage() {
                           )}
                         </div>
 
-                        {/* Status badge */}
-                        <div className="mt-2.5">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Check-in open
-                          </span>
-                        </div>
                       </div>
                     </div>
 
@@ -289,9 +289,9 @@ export default function VolunteerDashboardPage() {
                         Start scanning
                       </div>
                     </div>
-                  </button>
+                  </div>
 
-                  {/* Quick Scan (shake) row */}
+                  {/* Shake to Scan row */}
                   <div className="px-4 py-3 border-t border-[var(--color-border)] bg-slate-50 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ZapIcon
@@ -299,20 +299,24 @@ export default function VolunteerDashboardPage() {
                         className={isQuickScanOn ? "text-[var(--color-primary)]" : "text-[var(--color-text-light)]"}
                       />
                       <span className="text-[12px] font-semibold text-[var(--color-text-muted)]">
-                        Quick Scan {isQuickScanOn ? "(on)" : ""}
+                        Shake to Scan {isQuickScanOn ? "(on)" : ""}
                       </span>
                     </div>
 
                     {/* Toggle */}
                     <button
-                      onClick={() => void handleToggleShake(event.event_id)}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleToggleShake(event.event_id);
+                      }}
                       className="relative h-6 w-11 rounded-full transition-colors"
                       style={{
                         background: isQuickScanOn
                           ? "var(--color-primary)"
                           : "var(--color-border)",
                       }}
-                      aria-label="Toggle Quick Scan"
+                      aria-label="Toggle Shake to Scan"
                     >
                       <span
                         className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
