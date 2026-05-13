@@ -1377,7 +1377,7 @@ html, body {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.4);
-  z-index: 100;
+  z-index: 200;
   display: flex;
   align-items: flex-end;
   animation: fade-in 200ms ease-out;
@@ -1387,9 +1387,23 @@ html, body {
   width: 100%;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
-  padding: 24px 20px 32px;
+  padding: 8px 20px calc(32px + env(safe-area-inset-bottom, 0px));
   animation: slide-up 250ms cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
+  /* Scrollable on small screens */
+  max-height: 72dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* Drag handle */
+.participant-sheet::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  margin: 0 auto 16px;
 }
 .participant-sheet-header {
   display: flex;
