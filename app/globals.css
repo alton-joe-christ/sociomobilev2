@@ -855,9 +855,9 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  /* Safe area + extra 8px breathing room to ensure text never clips */
-  padding: calc(var(--safe-top) + 10px) 14px 10px;
-  min-height: calc(var(--safe-top) + 52px);
+  /* Safe area + proper padding to prevent top bar overlap */
+  padding: calc(var(--safe-top) + 12px) 14px 10px;
+  min-height: calc(var(--safe-top) + 56px);
   background: linear-gradient(180deg, rgba(0, 15, 66, 0.98) 0%, rgba(1, 22, 84, 0.95) 100%);
   border-bottom: 1px solid rgba(170, 200, 255, 0.14);
   flex-shrink: 0;
@@ -876,7 +876,7 @@ html, body {
 
 .scan-header-title {
   flex: 1; min-width: 0;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px;
 }
 .scan-event-name {
   font-size: 11px; font-weight: 800; color: rgba(240, 246, 255, 0.88);
@@ -908,11 +908,12 @@ html, body {
 .scan-status-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  min-height: 28px;
-  padding: 4px 14px;
-  background: rgba(1, 15, 60, 0.88);
-  border-bottom: 1px solid rgba(168, 203, 255, 0.12);
+  justify-content: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 4px 12px;
+  background: rgba(1, 15, 60, 0.95);
+  border-bottom: 1px solid rgba(168, 203, 255, 0.08);
   flex-shrink: 0;
 }
 .scan-status-dot {
@@ -950,7 +951,7 @@ html, body {
   display: flex;
   flex-direction: column;
   /* Compact operational size — camera-first, not screen-dominant */
-  min-height: clamp(280px, 50dvh, 420px);
+  min-height: clamp(240px, 45dvh, 380px);
   background:
     radial-gradient(circle at 50% 0%, rgba(53, 109, 255, 0.14), transparent 40%),
     linear-gradient(180deg, rgba(0, 12, 50, 0.99) 0%, rgba(0, 9, 38, 0.99) 100%);
@@ -958,8 +959,8 @@ html, body {
   border: 1px solid rgba(151, 181, 255, 0.18);
   transition: border-color 110ms ease, box-shadow 140ms ease;
   flex-shrink: 0;
-  border-radius: 20px;
-  box-shadow: 0 10px 28px rgba(1, 14, 58, 0.22);
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(1, 14, 58, 0.18);
   /*
    * contain: layout style — isolates this subtree from the rest of the page.
    * Prevents scanner state changes (border-color, box-shadow) from triggering
@@ -977,7 +978,7 @@ html, body {
 .scan-viewport-camera {
   position: relative;
   /* Camera takes ~80% of the viewport height */
-  min-height: clamp(200px, 38dvh, 320px);
+  min-height: clamp(180px, 35dvh, 300px);
   flex: 1 1 80%;
   background:
     radial-gradient(circle at 50% 28%, rgba(80, 148, 255, 0.16), transparent 32%),
@@ -1012,22 +1013,22 @@ html, body {
 .scan-frame { position: absolute; inset: 0; pointer-events: none; }
 .scan-corner {
   position: absolute; width: 22px; height: 22px;
-  border-color: rgba(110, 210, 255, 0.95); border-style: solid;
-  filter: drop-shadow(0 0 5px rgba(68, 170, 255, 0.45));
+  border-color: rgba(200, 230, 255, 0.9); border-style: solid;
+  filter: drop-shadow(0 0 3px rgba(68, 170, 255, 0.3));
   animation: frame-pulse 2s ease-in-out infinite;
 }
-.scan-corner-tl { top: 22%; left: 17%; border-width: 2.5px 0 0 2.5px; }
-.scan-corner-tr { top: 22%; right: 17%; border-width: 2.5px 2.5px 0 0; }
-.scan-corner-bl { bottom: 22%; left: 17%; border-width: 0 0 2.5px 2.5px; }
-.scan-corner-br { bottom: 22%; right: 17%; border-width: 0 2.5px 2.5px 0; }
+.scan-corner-tl { top: 20%; left: 15%; border-width: 1.5px 0 0 1.5px; }
+.scan-corner-tr { top: 20%; right: 15%; border-width: 1.5px 1.5px 0 0; }
+.scan-corner-bl { bottom: 20%; left: 15%; border-width: 0 0 1.5px 1.5px; }
+.scan-corner-br { bottom: 20%; right: 15%; border-width: 0 1.5px 1.5px 0; }
 
 /* ── Scan Line — SOCIO accent on dark ── */
 .scan-line {
-  position: absolute; left: 17%; right: 17%;
-  height: 2px; background: linear-gradient(90deg, rgba(84,190,255,0.15) 0%, rgba(120,221,255,0.95) 50%, rgba(84,190,255,0.15) 100%);
-  top: 24%; animation: scan-sweep 1.9s linear infinite;
+  position: absolute; left: 15%; right: 15%;
+  height: 1.5px; background: linear-gradient(90deg, rgba(84,190,255,0.05) 0%, rgba(120,221,255,0.8) 50%, rgba(84,190,255,0.05) 100%);
+  top: 22%; animation: scan-sweep 1.9s linear infinite;
   will-change: top;
-  box-shadow: 0 0 10px rgba(113, 210, 255, 0.55);
+  box-shadow: 0 0 6px rgba(113, 210, 255, 0.35);
 }
 
 /* ── Idle Overlay ── */
@@ -1071,7 +1072,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px 11px;
+  padding: 8px 14px 8px;
   background: rgba(247, 250, 255, 0.99);
   border-top: 1px solid rgba(210, 220, 238, 0.9);
 }
@@ -1150,19 +1151,19 @@ html, body {
 }
 
 .scan-stop-btn-inline {
-  /* Inline stop — compact, not alarming */
-  background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 8px;
-  padding: 5px 12px;
+  /* Inline stop — minimal operational styling */
+  background: rgba(15, 23, 42, 0.05);
+  color: #334155;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  padding: 4px 10px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 100ms ease;
 }
-.scan-stop-btn-inline:active { background: rgba(239, 68, 68, 0.16); }
+.scan-stop-btn-inline:active { background: rgba(15, 23, 42, 0.08); }
 
 .scan-event-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 255, 0.98));
@@ -1294,14 +1295,14 @@ html, body {
   min-height: 0;
   background: #ffffff;
   overflow: hidden;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 16px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 .scan-history-label {
-  font-size: 11px; font-weight: 700; color: #5a6e96;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  padding: 8px 14px 7px;
+  font-size: 10px; font-weight: 700; color: #5a6e96;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 6px 12px;
   border-bottom: 1px solid #edf2ff;
   display: flex; align-items: center; gap: 8px;
   margin: 0; flex-shrink: 0;
@@ -1318,10 +1319,10 @@ html, body {
   color: #8094bc; font-size: 12px; font-weight: 600;
 }
 
-/* ── Scan Row — 42px touch target ── */
+/* ── Scan Row — 38px touch target ── */
 .scan-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 0 14px; min-height: 42px;
+  padding: 0 12px; min-height: 38px;
   border-bottom: 1px solid #edf2ff;
   animation: row-in 140ms ease-out both;
 }

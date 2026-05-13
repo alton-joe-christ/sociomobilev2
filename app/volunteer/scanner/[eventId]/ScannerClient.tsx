@@ -687,14 +687,11 @@ export default function ScannerClient() {
           <div className="scan-terminal-panel">
             <div className="scan-terminal-copy">
               {isScanning && (
-                <p className="scan-terminal-meta">Align QR code within the frame</p>
+                <p className="scan-terminal-meta">Align QR within frame</p>
               )}
             </div>
 
             <div className="scan-terminal-actions">
-              <span className={`scan-terminal-badge${isScanning ? " scan-terminal-badge-active" : ""}`}>
-                {isScanning ? "Active" : "Ready"}
-              </span>
               {isScanning && (
                 <button
                   className="scan-stop-btn scan-stop-btn-inline"
