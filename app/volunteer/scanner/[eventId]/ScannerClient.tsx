@@ -104,7 +104,7 @@ function ScannerParticipantSheet({
   const getStatusLabel = (status: ScanStatus) => {
     switch (status) {
       case "success": return "Verified • Checked In";
-      case "duplicate": return "Duplicate Scan";
+      case "duplicate": return "Already checked in";
       case "offline": return "Pending Secure Sync";
       case "unauthorized": return "Not Assigned";
       default: return "Invalid Scan";
@@ -748,7 +748,7 @@ export default function ScannerClient() {
     if (isVerifying) return { text: "Verifying attendee…", tone: "info" as const };
     if (!isScanning) return { text: "Ready to scan", tone: "idle" as const };
     if (viewportStatus === "success") return { text: "Attendance marked", tone: "success" as const };
-    if (viewportStatus === "duplicate") return { text: "Duplicate scan detected", tone: "warning" as const };
+    if (viewportStatus === "duplicate") return { text: "Already checked in", tone: "warning" as const };
     if (viewportStatus === "error") return { text: "Invalid QR detected", tone: "error" as const };
     return { text: "Scanning active", tone: "active" as const };
   }, [cameraError, isVerifying, isScanning, viewportStatus]);
