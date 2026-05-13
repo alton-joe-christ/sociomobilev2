@@ -107,7 +107,7 @@ export default function VolunteerDashboardPage() {
   /* Guard: Christ University members only */
   if (!isLoading && userData && !userData.register_number) {
     return (
-      <div className="pwa-page flex items-center justify-center bg-[var(--color-bg)] px-6">
+      <div className="pwa-page-center bg-[var(--color-bg)] px-6">
         <div className="text-center max-w-[300px]">
           <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-[var(--color-primary-light)] flex items-center justify-center">
             <ShieldCheckIcon size={28} className="text-[var(--color-primary)]" />

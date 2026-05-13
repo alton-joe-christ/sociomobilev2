@@ -49,7 +49,7 @@ export default function ScannerError({
   };
 
   return (
-    <div className="pwa-page flex flex-col items-center justify-center bg-[var(--color-bg)] px-6 min-h-screen">
+    <div className="pwa-page-center bg-[var(--color-bg)] px-6">
       <div className="w-full max-w-md bg-white p-8 rounded-[30px] shadow-sm border border-[var(--color-border)] text-center">
         <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6">
           <AlertTriangleIcon size={32} />

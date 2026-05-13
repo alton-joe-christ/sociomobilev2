@@ -74,12 +74,86 @@ interface HistoryRow {
   name: string;
   status: ScanStatus;
   time: Date;
+  qrData?: string;
 }
 
 interface QueuedScan {
   id: string;
   payload: unknown;
   timestamp: number;
+}
+
+function ScannerParticipantSheet({
+  row,
+  onClose,
+  eventTitle,
+}: {
+  row: HistoryRow;
+  onClose: () => void;
+  eventTitle: string;
+}) {
+  const getBadgeClass = (status: ScanStatus) => {
+    switch (status) {
+      case "success": return "success";
+      case "duplicate": return "duplicate";
+      case "offline": return "offline";
+      default: return "error";
+    }
+  };
+
+  const getStatusLabel = (status: ScanStatus) => {
+    switch (status) {
+      case "success": return "Verified • Checked In";
+      case "duplicate": return "Duplicate Scan";
+      case "offline": return "Pending Secure Sync";
+      case "unauthorized": return "Not Assigned";
+      default: return "Invalid Scan";
+    }
+  };
+
+  return (
+    <div className="participant-sheet-overlay" onClick={onClose}>
+      <div className="participant-sheet" onClick={e => e.stopPropagation()}>
+        <div className="participant-sheet-header">
+          <div>
+            <h3 className="participant-sheet-title">{row.name}</h3>
+            <p className="participant-sheet-subtitle">{row.qrData || "No Registration ID"}</p>
+          </div>
+          <button className="participant-sheet-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div className="participant-sheet-grid">
+          <div className="participant-sheet-field">
+            <span className="participant-sheet-label">Status</span>
+            <div className={`participant-sheet-badge ${getBadgeClass(row.status)}`}>
+              {TOAST_ICON[row.status]} {getStatusLabel(row.status)}
+            </div>
+          </div>
+          
+          <div className="participant-sheet-field">
+            <span className="participant-sheet-label">Time</span>
+            <span className="participant-sheet-value">
+              {row.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+          </div>
+
+          <div className="participant-sheet-field">
+            <span className="participant-sheet-label">Event</span>
+            <span className="participant-sheet-value">{eventTitle}</span>
+          </div>
+          
+          <div className="participant-sheet-field">
+            <span className="participant-sheet-label">Date</span>
+            <span className="participant-sheet-value">
+              {row.time.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Auto-dismiss durations per toast type (ms) */
@@ -692,7 +766,7 @@ export default function ScannerClient() {
 
   if (!event || accessError) {
     return (
-      <div className="pwa-page flex items-center justify-center bg-[var(--color-bg)] px-6">
+      <div className="pwa-page-center bg-[var(--color-bg)] px-6">
         <div className="text-center max-w-[300px]">
           <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-red-50 flex items-center justify-center">
             <AlertTriangleIcon size={28} className="text-[var(--color-danger)]" />
@@ -867,7 +941,7 @@ export default function ScannerClient() {
               </div>
             ) : (
               history.slice(0, 20).map(row => (
-                <div key={row.id} className={`scan-row scan-row-${row.status}`}>
+                <div key={row.id} className={`scan-row scan-row-${row.status}`} onClick={() => setSelectedRow(row)}>
                   <span className="scan-row-icon">{ROW_ICON[row.status]}</span>
                   <span className="scan-row-name">{row.name}</span>
                   <span className="scan-row-time">
@@ -883,6 +957,10 @@ export default function ScannerClient() {
           </div>
         </section>
       </div>
+
+      {selectedRow && (
+        <ScannerParticipantSheet row={selectedRow} eventTitle={event.title} onClose={() => setSelectedRow(null)} />
+      )}
     </div>
   );
 }
