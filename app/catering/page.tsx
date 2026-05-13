@@ -168,7 +168,7 @@ export default function CateringDashboardPage() {
 
   if (!userData?.is_masteradmin && !userData?.roles?.catering) {
     return (
-      <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-6 text-center pt-[calc(var(--nav-height,54px)+var(--safe-top,0px)+24px)] pb-[calc(var(--bottom-nav,60px)+var(--safe-bottom,0px)+16px)]">
+      <div className="pwa-page-center bg-[var(--color-bg)] px-6">
         <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
           <AlertTriangleIcon className="text-red-500" size={32} />
         </div>

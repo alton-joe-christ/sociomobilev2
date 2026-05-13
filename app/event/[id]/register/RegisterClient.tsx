@@ -194,7 +194,7 @@ export default function RegisterClient({ eventId }: { eventId: string }) {
 
   if (loading || ctxLoading || authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="pwa-page-center">
         <Loader2Icon className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
       </div>
     );
@@ -210,7 +210,7 @@ export default function RegisterClient({ eventId }: { eventId: string }) {
 
   if (!event) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 px-6 text-center">
+      <div className="pwa-page-center gap-3 px-6">
         <AlertCircleIcon size={40} className="text-red-400" />
         <p className="font-bold">Event not found</p>
         <Link href="/discover" className="btn btn-primary text-sm mt-2">Back</Link>
@@ -220,7 +220,7 @@ export default function RegisterClient({ eventId }: { eventId: string }) {
 
   if (success) {
     return (
-      <div className="flex items-center justify-center min-h-[70vh] px-6">
+      <div className="pwa-page-center px-6">
         <div className="card p-6 text-center max-w-sm w-full animate-scale-in">
           <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
             <CheckCircleIcon size={32} className="text-emerald-600" />

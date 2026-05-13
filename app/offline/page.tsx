@@ -6,7 +6,7 @@ import { WifiOffIcon, CompassIcon, CalendarDaysIcon, UserIcon } from "@/componen
 
 export default function OfflinePage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center animate-fade-in">
+    <div className="pwa-page-center px-6">
       <Image src="/logo.svg" alt="Socio" width={110} height={35} className="mb-8 opacity-80" />
       
       <div className="relative mb-6">

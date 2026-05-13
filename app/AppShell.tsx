@@ -23,7 +23,7 @@ const CampusSelector = dynamic(() => import("@/components/CampusSelector"), { ss
 const ShakeToScanListener = dynamic(() => import("@/components/ShakeToScanListener"), { ssr: false });
 
 const NO_BOTTOM_NAV = ["/auth", "/auth/callback", "/offline"];
-const NO_TOP_BAR = ["/auth/callback", "/offline", "/notifications"];
+const NO_TOP_BAR = ["/auth/callback", "/offline", "/notifications", "/volunteer/scanner"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -59,7 +59,7 @@ export default function FestDetailClient({ festId }: { festId: string }) {
 
   if (error && !fest) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 px-6 text-center">
+      <div className="pwa-page-center gap-3 px-6">
         <p className="font-bold text-lg text-[var(--color-text)]">{error?.message || "Fest not found"}</p>
         <p className="text-sm text-[var(--color-text-muted)] -mt-1 mb-2">
           We couldn't load the details for this fest.

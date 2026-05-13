@@ -6,7 +6,7 @@ import { CompassIcon } from "@/components/icons";
  */
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg)] p-6 text-center">
+    <div className="pwa-page-center bg-[var(--color-bg)] px-6">
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-[var(--color-primary)]">
         <CompassIcon size={40} />
       </div>

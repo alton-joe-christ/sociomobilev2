@@ -143,6 +143,14 @@ export default function VolunteerDashboardPage() {
         style={{ paddingTop: "calc(var(--safe-top))" }}
       >
         <div className="flex items-center gap-3 px-4 h-14">
+          <button
+            onClick={() => router.back()}
+            className="h-9 w-9 rounded-full flex items-center justify-center -ml-1 text-[var(--color-text)] active:bg-slate-100 transition-colors"
+            aria-label="Go back"
+          >
+            <ArrowLeftIcon size={20} strokeWidth={2.2} />
+          </button>
+          
           {/* Avatar */}
           <div className="h-9 w-9 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center shrink-0 overflow-hidden">
             {userData?.avatar_url ? (

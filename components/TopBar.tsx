@@ -9,7 +9,7 @@ import { ArrowLeftIcon, UserIcon } from "@/components/icons";
 import { useState, useEffect } from "react";
 
 // Pages that show back button instead of logo
-const BACK_PAGES = ["/event/", "/fest/", "/notifications", "/club/"];
+const BACK_PAGES = ["/event/", "/fest/", "/notifications", "/club/", "/profile/settings", "/privacy", "/terms"];
 
 export default function TopBar() {
   const { user, userData, isAuthenticated, isAuthReady, isLoading } = useAuth();
