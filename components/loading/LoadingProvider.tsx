@@ -10,8 +10,8 @@ import React, {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
-import { OperationalPanel } from "./OperationalPanel";
-import { RecoveryCard } from "./RecoveryCard";
+import { AnimatePresence } from "framer-motion";
+import { BlueprintFossilLoader } from "./BlueprintFossilLoader";
 import { useDelayedShow } from "./useDelayedShow";
 import type { OperationKey } from "./loadingStages";
 
@@ -173,28 +173,23 @@ function LoadingHost({ entry, onShown }: { entry: ActiveEntry | null; onShown: (
     }
   }, [entry, showPanel, onShown]);
 
-  if (!entry || !showPanel) return null;
-
-  if (entry.kind === "recovery") {
-    return (
-      <RecoveryCard
-        operation={entry.operation}
-        stageIndex={entry.stageIndex}
-        message={entry.message}
-        scannerSafe={entry.scannerSafe}
-      />
-    );
-  }
+  const visible = !!entry && showPanel;
 
   return (
-    <OperationalPanel
-      operation={entry.operation}
-      stageIndex={entry.stageIndex}
-      message={entry.message}
-      progress={entry.progress}
-      blocking={entry.blocking}
-      scannerSafe={entry.scannerSafe}
-    />
+    <AnimatePresence>
+      {visible && entry && (
+        <BlueprintFossilLoader
+          key={entry.id}
+          variant={entry.kind === "recovery" ? "recovery" : "panel"}
+          operation={entry.operation}
+          stageIndex={entry.stageIndex}
+          message={entry.message}
+          progress={entry.progress}
+          blocking={entry.blocking}
+          scannerSafe={entry.scannerSafe}
+        />
+      )}
+    </AnimatePresence>
   );
 }
 

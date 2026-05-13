@@ -1,11 +1,7 @@
 export { LoadingProvider, useLoading } from "./LoadingProvider";
 export type { LoaderHandle, LoaderRequest, LoaderKind } from "./LoadingProvider";
-export { OperationalPanel } from "./OperationalPanel";
-export type { OperationalPanelProps } from "./OperationalPanel";
-export { RecoveryCard } from "./RecoveryCard";
-export type { RecoveryCardProps } from "./RecoveryCard";
-export { FirstLaunchPanel } from "./FirstLaunchPanel";
-export type { FirstLaunchPanelProps } from "./FirstLaunchPanel";
+export { BlueprintFossilLoader } from "./BlueprintFossilLoader";
+export type { BlueprintFossilLoaderProps, BlueprintFossilVariant } from "./BlueprintFossilLoader";
 export { FossilGlyph } from "./FossilGlyph";
 export type { FossilGlyphMode } from "./FossilGlyph";
 export { MicroLoader } from "./MicroLoader";

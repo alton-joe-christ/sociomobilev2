@@ -1,35 +1,34 @@
 export const STAGES = {
-  "scanner.prepare": ["Initializing scanner", "Preparing camera", "Verifying access"],
-  "scanner.verify": ["Reading code", "Verifying attendee", "Marking attendance"],
-  "event.update": ["Saving changes", "Syncing event data", "Updating attendance"],
-  "auth.restore": ["Restoring your session", "Verifying campus"],
-  "auth.switch": ["Switching profiles", "Applying secure context"],
-  "events.sync": ["Syncing events", "Updating cache"],
-  "offline.recover": ["Reconnecting", "Syncing cached operations", "Offline cache ready"],
+  "scanner.prepare": ["Preparing scanner terminal", "Initializing camera", "Verifying access"],
+  "scanner.verify": ["Verifying attendee channel", "Marking attendance"],
+  "event.update": ["Saving changes", "Synchronizing event data", "Updating attendance"],
+  "auth.restore": ["Refreshing your campus identity"],
+  "auth.switch": ["Refreshing your campus identity"],
+  "events.sync": ["Synchronizing campus systems", "Updating live context"],
+  "offline.recover": ["Restoring cached operations", "Syncing offline queue", "Live context ready"],
   "launch.first": [
-    "Restoring your campus",
-    "Preparing scanner",
-    "Loading events",
-    "Optimizing offline storage",
+    "Building your campus workspace",
+    "Loading event data",
+    "Optimizing offline access",
     "Almost ready",
   ],
-  "cache.restore": ["Restoring cached session"],
-  generic: ["Working"],
+  "cache.restore": ["Rebuilding live context"],
+  generic: ["Refreshing operational state"],
 } as const;
 
 export type OperationKey = keyof typeof STAGES;
 
 export const TITLES: Record<OperationKey, string> = {
-  "scanner.prepare": "Preparing Scanner",
+  "scanner.prepare": "Preparing Scanner Terminal",
   "scanner.verify": "Verifying Attendance",
   "event.update": "Updating Your Event",
-  "auth.restore": "Restoring Session",
-  "auth.switch": "Switching Profiles",
-  "events.sync": "Syncing Events",
-  "offline.recover": "Reconnecting",
-  "launch.first": "Welcome to SOCIO",
-  "cache.restore": "Restoring Cache",
-  generic: "Working",
+  "auth.restore": "Refreshing Campus Identity",
+  "auth.switch": "Refreshing Campus Identity",
+  "events.sync": "Synchronizing Campus Systems",
+  "offline.recover": "Restoring Cached Operations",
+  "launch.first": "Building Your Campus Workspace",
+  "cache.restore": "Rebuilding Live Context",
+  generic: "Refreshing Operational State",
 };
 
 export function stageMessage(operation: OperationKey, index: number): string {

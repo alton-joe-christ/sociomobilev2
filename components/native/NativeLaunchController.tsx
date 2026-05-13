@@ -14,7 +14,7 @@ import {
   touchNativeLaunchStorage,
   type RecoveryReason,
 } from "@/lib/nativeLaunchState";
-import { FirstLaunchPanel, OperationalPanel, RecoveryCard } from "@/components/loading";
+import { BlueprintFossilLoader } from "@/components/loading";
 import type { OperationKey } from "@/components/loading";
 import { logCapacitorPerfAudit, startFrameMonitor, startPerfSpan } from "@/lib/capacitorPerfAudit";
 
@@ -401,9 +401,12 @@ export default function NativeLaunchController() {
 
   if (mode === "full-intro") {
     return (
-      <FirstLaunchPanel
+      <BlueprintFossilLoader
+        variant="first-launch"
+        operation="launch.first"
         stageIndex={launchStageIndex}
         progress={progress}
+        blocking
         exiting={closing}
         done={steps.authReady && steps.scannerReady && steps.eventsReady && steps.storageReady}
       />
@@ -412,10 +415,10 @@ export default function NativeLaunchController() {
 
   if (mode === "account-transition") {
     return (
-      <OperationalPanel
+      <BlueprintFossilLoader
+        variant="panel"
         operation="auth.switch"
         message={accountMessage}
-        progress={undefined}
         blocking
         scannerSafe={isScannerRoute}
         exiting={closing}
@@ -424,7 +427,8 @@ export default function NativeLaunchController() {
   }
 
   return (
-    <RecoveryCard
+    <BlueprintFossilLoader
+      variant="recovery"
       operation={recoveryOp}
       message={recoveryMessage}
       scannerSafe={isScannerRoute}

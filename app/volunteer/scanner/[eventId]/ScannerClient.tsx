@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth, type VolunteerEvent } from "@/context/AuthContext";
-import { OperationalPanel } from "@/components/loading";
+import { BlueprintFossilLoader } from "@/components/loading";
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
@@ -621,7 +621,7 @@ export default function ScannerClient() {
   if (authLoading || isChecking) {
     return (
       <div className="fixed inset-0 z-[40] bg-[var(--color-bg)]">
-        <OperationalPanel operation="scanner.prepare" blocking={false} progress={undefined} />
+        <BlueprintFossilLoader variant="compact" operation="scanner.prepare" blocking={false} />
       </div>
     );
   }

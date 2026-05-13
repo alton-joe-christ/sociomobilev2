@@ -26,6 +26,10 @@
   --color-danger: #EF4444;
   --color-warning: #F59E0B;
   --color-info: #3B82F6;
+  /* ── Operational loader accents ── */
+  --op-cyan: #22B8FF;
+  --op-cyan-soft: rgba(34,184,255,0.45);
+  --op-cyan-faint: rgba(34,184,255,0.12);
   /* ── Radii ── */
   --radius-xs: 6px;
   --radius-sm: 8px;
@@ -143,19 +147,6 @@ html, body {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
-@keyframes op-card-in {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
-  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-@keyframes op-glyph-draw {
-  to { stroke-dashoffset: 0; }
-}
-@keyframes op-glyph-sweep {
-  0%   { transform: translateX(0);   opacity: 0; }
-  10%  { opacity: 0.55; }
-  90%  { opacity: 0.55; }
-  100% { transform: translateX(168px); opacity: 0; }
-}
 @keyframes op-indeterminate {
   0%   { transform: translateX(-30%); }
   100% { transform: translateX(130%); }
@@ -163,6 +154,21 @@ html, body {
 @keyframes op-dot-pulse {
   0%, 100% { opacity: 0.45; transform: scale(0.85); }
   50%      { opacity: 1;    transform: scale(1);    }
+}
+@keyframes bp-bone-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes bp-glow-pulse {
+  0%, 100% { opacity: 0.22; }
+  50%      { opacity: 0.55; }
+}
+@keyframes bp-particle-float {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50%      { transform: translateY(-3px); opacity: 0.75; }
+}
+@keyframes bp-sweep-translate {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
 }
 
 .op-root {
@@ -210,8 +216,8 @@ html, body {
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 8px 30px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.06);
-  animation: op-card-in 220ms cubic-bezier(.22,1,.36,1) both;
   pointer-events: auto;
+  will-change: transform, opacity;
 }
 .op-root-passive .op-card { pointer-events: none; }
 .op-root-scanner-safe .op-card {
@@ -219,9 +225,8 @@ html, body {
   bottom: calc(var(--bottom-nav, 60px) + 24px);
   transform: translate(-50%, 0);
 }
-.op-card-recovery {
-  width: min(80vw, 320px);
-}
+.op-card-recovery { width: min(80vw, 320px); }
+.op-card-compact  { width: min(82vw, 300px); }
 
 .op-card-header {
   display: flex;
@@ -240,68 +245,128 @@ html, body {
 .op-card-body {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 18px 20px 20px;
+  align-items: stretch;
+  gap: 14px;
+  padding: 20px 22px 22px;
 }
+.op-card-compact .op-card-body  { padding: 16px 18px 18px; gap: 12px; }
+.op-card-recovery .op-card-body { padding: 14px 16px 16px; gap: 10px; }
 
-.op-glyph {
-  width: 84px;
-  max-width: 84px;
-  height: 56px;
-  display: block;
+/* Blueprint Fossil Scan glyph */
+.bp-glyph {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 180px;
+  position: relative;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #F8FBFF 0%, #EEF4FB 100%);
+  overflow: hidden;
 }
-.op-glyph-svg {
+.op-card-recovery .bp-glyph { max-height: 120px; }
+.bp-glyph-svg {
   width: 100%;
   height: 100%;
   display: block;
 }
-.op-glyph-path {
+.bp-grid-bg {
+  fill: var(--op-cyan-faint);
+}
+.bp-particle {
+  fill: var(--op-cyan-soft);
+  transform-origin: center;
+  animation: bp-particle-float 4s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.bp-particle-d1 { animation-delay: 0s; }
+.bp-particle-d2 { animation-delay: 0.6s; }
+.bp-particle-d3 { animation-delay: 1.2s; }
+.bp-particle-d4 { animation-delay: 1.8s; }
+.bp-particle-d5 { animation-delay: 2.4s; }
+.bp-particle-d6 { animation-delay: 3.0s; }
+.bp-glow {
+  opacity: 0.35;
+  animation: bp-glow-pulse 3.4s ease-in-out infinite;
+  will-change: opacity;
+}
+.bp-bone {
   fill: none;
   stroke: #011F7B;
-  stroke-width: 1.6;
+  stroke-width: 1.4;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 360;
-  stroke-dashoffset: 360;
-  animation: op-glyph-draw 500ms cubic-bezier(.22,1,.36,1) forwards;
-  transition: stroke 300ms ease;
+  stroke-dasharray: var(--bp-bone-len, 120);
+  stroke-dashoffset: var(--bp-bone-len, 120);
+  animation: bp-bone-draw 600ms cubic-bezier(.22,1,.36,1) forwards;
 }
-.op-glyph-path-done {
-  stroke: #10B981;
+.bp-bone-d0 { animation-delay: 0ms;   }
+.bp-bone-d1 { animation-delay: 80ms;  }
+.bp-bone-d2 { animation-delay: 160ms; }
+.bp-bone-d3 { animation-delay: 240ms; }
+.bp-bone-d4 { animation-delay: 320ms; }
+.bp-bone-d5 { animation-delay: 400ms; }
+.bp-bone-d6 { animation-delay: 480ms; }
+.bp-bone-d7 { animation-delay: 560ms; }
+.bp-eye    { fill: var(--op-cyan); }
+.bp-joint  { fill: #011F7B; }
+.bp-sweep-group {
+  transform: translateX(-100%);
+  animation: bp-sweep-translate 2.8s linear infinite;
+  will-change: transform;
 }
-.op-glyph-sweep {
-  stroke: #1E3FAB;
+.bp-sweep-line {
+  stroke: var(--op-cyan);
   stroke-width: 1;
-  opacity: 0;
-  animation: op-glyph-sweep 2.8s linear infinite 600ms;
+  opacity: 0.35;
 }
-.op-root-reduced .op-glyph-sweep,
-.op-root-scanner-safe .op-glyph-sweep,
-.op-root-web .op-glyph-sweep {
+.bp-sweep-dot  { fill: var(--op-cyan); }
+.bp-sweep-halo { fill: var(--op-cyan-soft); }
+
+/* Variant-specific glyph behaviour */
+.op-root-scanner-safe .bp-sweep-group,
+.op-root-scanner-safe .bp-glow,
+.op-root-scanner-safe .bp-particle {
   animation: none;
   display: none;
 }
+.op-root-web .bp-sweep-group {
+  animation-duration: 3.4s;
+}
 
-.op-progress-track {
+.op-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  height: 6px;
+}
+.op-progress-track {
+  flex: 1 1 auto;
+  height: 8px;
   border-radius: 999px;
   background: #F1F4F9;
   overflow: hidden;
   position: relative;
 }
+.op-card-compact .op-progress-track,
+.op-card-recovery .op-progress-track { height: 6px; }
 .op-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #011F7B 0%, #FFBA09 100%);
-  transition: width 420ms cubic-bezier(.22,1,.36,1);
+  background: linear-gradient(90deg, #011F7B 0%, var(--op-cyan) 55%, #FFBA09 100%);
+  transition: width 500ms cubic-bezier(.22,1,.36,1);
   will-change: width;
 }
 .op-progress-indeterminate {
   width: 40%;
   animation: op-indeterminate 1.4s ease-in-out infinite;
   will-change: transform;
+}
+.op-progress-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
 }
 
 .op-message {
@@ -338,18 +403,22 @@ html, body {
   animation: op-dot-pulse 1.1s ease-in-out infinite;
 }
 
-/* Reduced-motion safety net for op-* */
+/* Reduced-motion safety net for op-* and bp-* */
 .op-root-reduced .op-card,
 .op-root-reduced.op-recovery-root .op-card,
-.op-root-reduced .op-glyph-path,
 .op-root-reduced .op-progress-indeterminate,
 .op-root-reduced .op-recovery-dot,
-.op-recovery-root.op-root-reduced .op-recovery-dot {
+.op-recovery-root.op-root-reduced .op-recovery-dot,
+.op-root-reduced .bp-bone,
+.op-root-reduced .bp-particle,
+.op-root-reduced .bp-glow,
+.op-root-reduced .bp-sweep-group {
   animation: none !important;
   transition: none !important;
 }
 .op-root-reduced .op-card { transform: translate(-50%, -50%); }
-.op-root-reduced .op-glyph-path { stroke-dashoffset: 0; }
+.op-root-reduced .bp-bone { stroke-dashoffset: 0; }
+.op-root-reduced .bp-sweep-group { display: none; }
 
 .text-glow {
   text-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
@@ -550,16 +619,18 @@ html, body {
   .op-root,
   .op-recovery-root,
   .op-card,
-  .op-glyph-path,
-  .op-glyph-sweep,
   .op-progress-indeterminate,
-  .op-recovery-dot {
+  .op-recovery-dot,
+  .bp-bone,
+  .bp-particle,
+  .bp-glow,
+  .bp-sweep-group {
     animation: none !important;
     transition: none !important;
   }
   .op-card { transform: translate(-50%, -50%); }
-  .op-glyph-path { stroke-dashoffset: 0; }
-  .op-glyph-sweep { display: none; }
+  .bp-bone { stroke-dashoffset: 0; }
+  .bp-sweep-group { display: none; }
 }
 
 /* ── Input ── */

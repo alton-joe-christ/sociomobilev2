@@ -1,10 +1,10 @@
 import React from "react";
-import { OperationalPanel } from "@/components/loading";
+import { BlueprintFossilLoader } from "@/components/loading";
 
 export default function LoadingScreen() {
   return (
     <div className="fixed inset-0 z-[40] bg-white">
-      <OperationalPanel operation="cache.restore" blocking={false} progress={undefined} />
+      <BlueprintFossilLoader variant="panel" operation="cache.restore" blocking={false} />
     </div>
   );
 }
