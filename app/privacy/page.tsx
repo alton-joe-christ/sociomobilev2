@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function PrivacyPage() {
   return (
-    <div className="pwa-page pt-4 px-4 pb-8">
+    <div className="pwa-page pt-2 px-4 pb-8">
       <div className="max-w-3xl mx-auto">
         <div className="card overflow-hidden">
           <div className="bg-[var(--color-primary-dark)] text-white px-5 py-4">

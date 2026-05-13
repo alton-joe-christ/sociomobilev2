@@ -112,7 +112,7 @@ export default function ClubDetailClient({ id }: { id: string }) {
 
   if (loading) {
     return (
-      <div className="pwa-page pt-4 pb-8 max-w-[420px] mx-auto">
+      <div className="pwa-page pt-2 pb-8 max-w-[420px] mx-auto">
         <div className="animate-pulse">
           <div className="skeleton h-[240px] w-full" />
           <div className="px-5 py-5 space-y-3">
@@ -127,7 +127,7 @@ export default function ClubDetailClient({ id }: { id: string }) {
 
   if (error || !club) {
     return (
-      <div className="pwa-page pt-4 pb-8 max-w-[420px] mx-auto px-5 flex flex-col items-center justify-center min-h-[60vh]">
+      <div className="pwa-page pt-2 pb-8 max-w-[420px] mx-auto px-5 flex flex-col items-center justify-center min-h-[60vh]">
         <p className="text-[var(--color-text-muted)] font-semibold text-center">
           {error || "Club not found"}
         </p>
@@ -236,7 +236,7 @@ export default function ClubDetailClient({ id }: { id: string }) {
   };
 
   return (
-    <div className="pwa-page pt-4 pb-24 bg-[#f9fafb] max-w-[420px] mx-auto">
+    <div className="pwa-page pt-2 pb-24 bg-[#f9fafb] max-w-[420px] mx-auto">
       {/* Banner */}
       <div className="px-5 pt-4">
         <div className="relative h-[240px] w-full overflow-hidden rounded-[28px] bg-[var(--color-primary-dark)] shadow-lg">

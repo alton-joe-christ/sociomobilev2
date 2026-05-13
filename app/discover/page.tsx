@@ -245,7 +245,7 @@ export default function DiscoverPage() {
   }, []);
 
   return (
-    <div className="pwa-page pt-4 pb-8 bg-[#f9fafb] max-w-[420px] mx-auto">
+    <div className="pwa-page pt-2 pb-8 bg-[#f9fafb] max-w-[420px] mx-auto">
       {/* Search Bar Row — Only visible when searching */}
       {isSearchOpen && (
         <div className="px-5 h-[48px] flex flex-col justify-center animate-fade-in">

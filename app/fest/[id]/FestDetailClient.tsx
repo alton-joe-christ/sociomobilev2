@@ -75,7 +75,7 @@ export default function FestDetailClient({ festId }: { festId: string }) {
   if (!fest) return <LoadingScreen />;
 
   return (
-    <div className="pwa-page pb-24 pt-4 animate-fade-in">
+    <div className="pwa-page pb-24 pt-2 animate-fade-in">
       <div className="relative aspect-[16/9] mx-4 rounded-2xl overflow-hidden shadow-lg border border-white/20">
         <Image
           src={fest.banner_url || fest.fest_image_url || "https://placehold.co/800x450/011F7B/ffffff?text=Fest"}

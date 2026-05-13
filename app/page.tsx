@@ -204,10 +204,7 @@ export default function HomePage() {
   }
 
   return (
-    <div
-      className="pwa-page relative overflow-hidden px-5 pb-[calc(var(--bottom-nav)+var(--safe-bottom)+96px)]"
-      style={{ paddingTop: "calc(var(--nav-height) + var(--safe-top) + 16px)" }}
-    >
+    <div className="pwa-page relative overflow-hidden px-5 pt-2 pb-[calc(var(--bottom-nav)+var(--safe-bottom)+96px)]">
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.18]"
         style={{
