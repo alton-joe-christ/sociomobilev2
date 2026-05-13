@@ -6,6 +6,7 @@ import { EventProvider } from "@/context/EventContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { ShakeToScanProvider } from "@/context/ShakeToScanContext";
 import { NetworkProvider } from "@/context/NetworkContext";
+import { LoadingProvider } from "@/components/loading";
 import type { FetchedEvent } from "@/context/EventContext";
 import AppShell from "./AppShell";
 import { apiRequest } from "@/lib/apiClient";
@@ -129,7 +130,9 @@ export default async function RootLayout({
             <EventProvider initialEvents={events}>
               <NotificationProvider>
                 <ShakeToScanProvider>
-                  <AppShell>{children}</AppShell>
+                  <LoadingProvider>
+                    <AppShell>{children}</AppShell>
+                  </LoadingProvider>
                 </ShakeToScanProvider>
               </NotificationProvider>
             </EventProvider>

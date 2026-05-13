@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MapPinIcon, Loader2Icon, RefreshCwIcon, CopyIcon, CheckIcon } from "@/components/icons";
+import { MapPinIcon, RefreshCwIcon, CopyIcon, CheckIcon } from "@/components/icons";
+import { MicroLoader } from "@/components/loading";
 import { apiRequest } from "@/lib/apiClient";
 
 /* ── Christ University campus coordinates (match web) ── */
@@ -151,7 +152,7 @@ export default function CampusSelector({ email, onComplete, onDismiss }: CampusS
         <div className="px-5 pb-5">
           {state === "detecting" && (
             <div className="flex flex-col items-center py-6">
-              <Loader2Icon size={36} className="animate-spin text-[var(--color-primary)] mb-3" />
+              <MicroLoader size={36} tone="primary" className="mb-3" />
               <p className="text-[13px] text-[var(--color-text-muted)] text-center font-medium">
                 Detecting your location...
               </p>
@@ -260,7 +261,7 @@ export default function CampusSelector({ email, onComplete, onDismiss }: CampusS
 
           {state === "saving" && (
             <div className="flex flex-col items-center py-6">
-              <Loader2Icon size={36} className="animate-spin text-[var(--color-primary)] mb-3" />
+              <MicroLoader size={36} tone="primary" className="mb-3" />
               <p className="text-[14px] font-semibold text-center">Saving your campus...</p>
             </div>
           )}

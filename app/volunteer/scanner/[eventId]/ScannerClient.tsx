@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth, type VolunteerEvent } from "@/context/AuthContext";
-import LoadingScreen from "@/components/LoadingScreen";
+import { OperationalPanel } from "@/components/loading";
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
@@ -618,7 +618,13 @@ export default function ScannerClient() {
   }, [cameraError, isVerifying, isScanning, viewportStatus, syncQueue.length]);
 
   /* ── Loading / Error guards ── */
-  if (authLoading || isChecking) return <LoadingScreen />;
+  if (authLoading || isChecking) {
+    return (
+      <div className="fixed inset-0 z-[40] bg-[var(--color-bg)]">
+        <OperationalPanel operation="scanner.prepare" blocking={false} progress={undefined} />
+      </div>
+    );
+  }
 
   if (!event || accessError) {
     return (
