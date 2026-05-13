@@ -135,13 +135,10 @@ export default function VolunteerDashboardPage() {
   const firstName = userData?.name?.split(" ")[0] || "Volunteer";
 
   return (
-    <div className="pwa-page bg-[var(--color-bg)] pt-[var(--nav-height)]">
+    <div className="pwa-page bg-[var(--color-bg)]">
 
       {/* ── Header ── */}
-      <header
-        className="sticky top-[var(--nav-height)] z-20 bg-white border-b border-[var(--color-border)]"
-        style={{ paddingTop: "calc(var(--safe-top))" }}
-      >
+      <header className="sticky top-0 z-20 bg-white border-b border-[var(--color-border)]">
         <div className="flex items-center gap-3 px-4 h-14">
           <button
             onClick={() => router.back()}
