@@ -869,29 +869,54 @@ export default function ScannerClient() {
         </div>
       )}
 
-      {/* ── Event Details ── */}
-      <div className="px-4 pt-6 pb-6 w-full flex flex-col items-center text-center relative z-10 flex-shrink-0">
-        <h1 className="text-[#000D3B] text-[22px] font-bold leading-tight max-w-[320px] mx-auto mb-2">{event.title}</h1>
-        <div className="flex items-center justify-center flex-wrap gap-2 text-[13px] text-[#94A3B8] font-medium mb-4">
-          {headerMetadata.map((item, index) => (
-            <span key={`${item}-${index}`} className="flex items-center">
-              {item}
-              {index < headerMetadata.length - 1 && <span className="w-[4px] h-[4px] rounded-full bg-[#cbd5e1] mx-2" aria-hidden="true" />}
-            </span>
-          ))}
-        </div>
-        <div className="bg-[#EAF0F9] border border-[#D5E1F2] rounded-full px-5 py-1.5 text-[#011F7B] text-[13px] font-bold whitespace-nowrap">
-          {scanCount} scanned
+      {/* ── Navy Event Header ── */}
+      <div className="bg-[#011F7B] px-4 pt-6 pb-28 relative z-10 w-full flex-shrink-0 rounded-b-[40px]">
+        <div className="flex flex-col gap-4 max-w-[480px] mx-auto">
+          {/* Top row: Back button, Title, Pill */}
+          <div className="flex items-center justify-between w-full gap-3">
+            <button 
+              className="flex-shrink-0 w-10 h-10 bg-[rgba(255,255,255,0.1)] rounded-xl flex items-center justify-center text-white active:bg-[rgba(255,255,255,0.2)] transition-colors"
+              onClick={() => { void stopScanner(); router.replace("/volunteer"); }}
+            >
+              <ArrowLeftIcon size={20} />
+            </button>
+            <h1 className="text-white text-[17px] font-semibold leading-tight flex-1 line-clamp-1">{event.title}</h1>
+            <div className="flex-shrink-0 border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] rounded-[14px] px-3 py-1.5 text-white text-[12px] font-semibold whitespace-nowrap">
+              {scanCount} scanned
+            </div>
+          </div>
+          
+          {/* Bottom row: Metadata */}
+          <div className="flex items-center gap-2 text-[11px] text-[#cbd5e1] font-medium flex-wrap px-1">
+             {/* Date */}
+             <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                {formatDateShort(event.event_date)}
+             </span>
+             <span className="w-[3px] h-[3px] rounded-full bg-[#94A3B8]" />
+             {/* Time */}
+             <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                {event.event_time ? formatTime(event.event_time) : "Time TBD"}
+             </span>
+             <span className="w-[3px] h-[3px] rounded-full bg-[#94A3B8]" />
+             {/* Venue */}
+             <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                {event.venue || event.campus_hosted_at || "Venue TBD"}
+             </span>
+          </div>
         </div>
       </div>
 
-      <div className="scan-main-column px-4 relative z-20 pb-24 max-w-[480px] mx-auto w-full flex-shrink-0 flex flex-col gap-6">
+      <div className="scan-main-column px-4 -mt-20 relative z-20 pb-24 max-w-[480px] mx-auto w-full flex-shrink-0 flex flex-col gap-6">
         
         {/* ── Scanner Card ── */}
-        <div className="w-full relative rounded-[28px] overflow-hidden shadow-[0_12px_40px_rgba(15,23,42,0.15)] bg-[#1A1A1A]" style={{ aspectRatio: '1' }}>
+        <div className="w-full bg-white relative rounded-[28px] shadow-[0_12px_40px_rgba(1,31,123,0.08)] p-5 flex flex-col items-center">
           <section
             id="scan-viewport"
-            className={`w-full h-full relative scan-viewport-${viewportStatus}`}
+            className={`w-full relative rounded-[20px] overflow-hidden bg-white border border-[#F1F5F9] shadow-inner scan-viewport-${viewportStatus}`}
+            style={{ aspectRatio: '1' }}
             aria-label="Camera scanner"
           >
             <video
@@ -902,7 +927,8 @@ export default function ScannerClient() {
               autoPlay
             />
 
-            <div className="absolute inset-0 bg-gradient-to-b from-[rgba(0,0,0,0.2)] to-[rgba(0,0,0,0.6)] pointer-events-none" aria-hidden="true" />
+            {/* If scanning, show dark gradient over camera */}
+            {isScanning && <div className="absolute inset-0 bg-gradient-to-b from-[rgba(0,0,0,0.2)] to-[rgba(0,0,0,0.6)] pointer-events-none" aria-hidden="true" />}
 
             {/* Corner brackets + sweep line */}
             {isScanning && (
@@ -915,48 +941,67 @@ export default function ScannerClient() {
               </div>
             )}
 
-            {/* Idle state */}
+            {/* Idle state inside viewport */}
             {!isScanning && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
-                <div className="scan-frame" aria-hidden="true">
-                  <div className="scan-corner scan-corner-tl" />
-                  <div className="scan-corner scan-corner-tr" />
-                  <div className="scan-corner scan-corner-bl" />
-                  <div className="scan-corner scan-corner-br" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white relative">
+                {/* Dotted grid background */}
+                <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.4 }} />
+                
+                {/* Yellow brackets (styled specifically for idle to match thin rounded look) */}
+                <div className="absolute inset-0 pointer-events-none z-10 p-6">
+                   <div className="absolute top-6 left-6 w-10 h-10 border-t-[3px] border-l-[3px] border-[#FFBA09] rounded-tl-[16px]" />
+                   <div className="absolute top-6 right-6 w-10 h-10 border-t-[3px] border-r-[3px] border-[#FFBA09] rounded-tr-[16px]" />
+                   <div className="absolute bottom-6 left-6 w-10 h-10 border-b-[3px] border-l-[3px] border-[#FFBA09] rounded-bl-[16px]" />
+                   <div className="absolute bottom-6 right-6 w-10 h-10 border-b-[3px] border-r-[3px] border-[#FFBA09] rounded-br-[16px]" />
                 </div>
-                {cameraError ? (
-                  <p className="text-[12px] font-semibold text-white bg-red-500/90 px-4 py-1.5 rounded-lg mt-4 z-10">{cameraError}</p>
-                ) : (
-                  <button
-                    id="start-scanning-btn"
-                    className="mt-6 h-[50px] px-8 bg-[#011F7B] text-white rounded-[16px] font-bold text-[15px] flex items-center justify-center gap-2 active:scale-95 transition-transform z-20 shadow-lg"
-                    onClick={() => void startScanner()}
-                  >
-                    <QrCodeIcon size={20} className="text-[#FFBA09]" /> Start Scanning
-                  </button>
-                )}
+
+                {/* Center elements */}
+                <div className="z-20 flex flex-col items-center">
+                  <div className="relative mb-6">
+                    <QrCodeIcon size={72} className="text-[#94A3B8] opacity-60" />
+                    {/* Idle scan line */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-[2px] bg-gradient-to-r from-transparent via-[#FFBA09] to-transparent shadow-[0_0_8px_#FFBA09]" />
+                  </div>
+                  <p className="text-[#64748B] text-[12px] font-medium tracking-wide">Position QR code within the frame</p>
+                </div>
               </div>
             )}
             
             {/* No explicit stop scanning button overlay to match the clean design */}
           </section>
+
+          {/* Error Message */}
+          {cameraError && !isScanning && (
+             <p className="text-[12px] font-semibold text-red-500 mt-4 text-center">{cameraError}</p>
+          )}
+
+          {/* Start Scanning Button */}
+          {!isScanning && (
+            <button
+              id="start-scanning-btn"
+              className="mt-5 w-full max-w-[320px] h-[52px] bg-[#011F7B] text-white rounded-[14px] font-semibold text-[15px] flex items-center justify-center gap-3 active:scale-[0.98] transition-transform shadow-[0_8px_20px_rgba(1,31,123,0.2)]"
+              onClick={() => void startScanner()}
+            >
+              <QrCodeIcon size={20} className="text-[#FFBA09]" /> Start Scanning
+            </button>
+          )}
         </div>
 
         {/* ── Recent Scans ── */}
-        <section className="bg-white rounded-[28px] p-2 flex flex-col" aria-label="Recent scans">
-          <div className="flex items-center justify-between px-2 mb-4">
-            <h3 className="text-[13px] font-bold text-[#0F172A] tracking-wider uppercase m-0 flex items-center gap-2">
+        <section className="bg-white rounded-[24px] border border-[#F1F5F9] shadow-[0_4px_24px_rgba(15,23,42,0.03)] flex flex-col overflow-hidden" aria-label="Recent scans">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F8FAFC]">
+            <h3 className="text-[12px] font-bold text-[#0F172A] tracking-wider uppercase m-0 flex items-center gap-2">
               RECENT SCANS
               {syncQueue.length > 0 && (
                 <span className="text-[#F59E0B] text-[9px]">● {syncQueue.length} pending</span>
               )}
             </h3>
-            <span className="text-[12px] font-bold text-[#011F7B] cursor-pointer">VIEW ALL</span>
+            <span className="text-[12px] font-bold text-[#011F7B] cursor-pointer">View all</span>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col">
             {history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-[#94A3B8]">
+              <div className="flex flex-col items-center justify-center py-8 text-[#94A3B8]">
                 <span className="text-[13px] font-medium">No scans yet</span>
               </div>
             ) : (
@@ -981,8 +1026,8 @@ export default function ScannerClient() {
                   "✕";
                 
                 return (
-                  <div key={row.id} className="flex items-center justify-between py-1 border-b border-[#F1F5F9] last:border-0" onClick={() => setSelectedRow(row)}>
-                    <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
+                  <div key={row.id} className="flex items-center justify-between py-3 px-4 border-b border-[#F8FAFC] last:border-0" onClick={() => setSelectedRow(row)}>
+                    <div className="flex items-center gap-4 overflow-hidden min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[14px] font-bold shrink-0 ${row.status === 'success' ? 'bg-[#D1FAE5] text-[#10B981]' : row.status === 'duplicate' ? 'bg-[#FEF3C7] text-[#F59E0B]' : row.status === 'error' ? 'bg-[#FEE2E2] text-[#EF4444]' : 'bg-[#E0E7FF] text-[#3B82F6]'}`}>
                         {getInitials(row.name)}
                       </div>
@@ -997,7 +1042,7 @@ export default function ScannerClient() {
                         <span>{statusIcon}</span> {statusLabel}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[12px] font-medium text-[#94A3B8]">
+                        <span className="text-[12px] font-medium text-[#94A3B8] font-variant-numeric: tabular-nums">
                           {row.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                         </span>
                         <span className="text-[#CBD5E1] text-[16px]">›</span>
