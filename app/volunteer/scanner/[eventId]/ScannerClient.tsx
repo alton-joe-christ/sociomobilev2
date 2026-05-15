@@ -957,10 +957,8 @@ export default function ScannerClient() {
 
                 {/* Center elements */}
                 <div className="z-20 flex flex-col items-center">
-                  <div className="relative mb-6">
+                  <div className="mb-6">
                     <QrCodeIcon size={72} className="text-[#94A3B8] opacity-60" />
-                    {/* Idle scan line */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-[2px] bg-gradient-to-r from-transparent via-[#FFBA09] to-transparent shadow-[0_0_8px_#FFBA09]" />
                   </div>
                   <p className="text-[#64748B] text-[12px] font-medium tracking-wide">Position QR code within the frame</p>
                 </div>
