@@ -870,7 +870,7 @@ export default function ScannerClient() {
       )}
 
       {/* ── Navy Event Header ── */}
-      <div className="bg-[#011F7B] px-4 pt-6 pb-28 relative z-10 w-full flex-shrink-0 rounded-b-[40px]">
+      <div className="bg-[#011F7B] px-4 pt-3 pb-32 relative z-10 w-full flex-shrink-0 rounded-b-[40px]">
         <div className="flex flex-col gap-4 max-w-[480px] mx-auto">
           {/* Top row: Back button, Title, Pill */}
           <div className="flex items-center justify-between w-full gap-3">
@@ -909,7 +909,7 @@ export default function ScannerClient() {
         </div>
       </div>
 
-      <div className="scan-main-column px-4 -mt-20 relative z-20 pb-24 max-w-[480px] mx-auto w-full flex-shrink-0 flex flex-col gap-6">
+      <div className="scan-main-column px-4 -mt-24 relative z-20 pb-24 max-w-[480px] mx-auto w-full flex-shrink-0 flex flex-col gap-6">
         
         {/* ── Scanner Card ── */}
         <div className="w-full bg-white relative rounded-[28px] shadow-[0_12px_40px_rgba(1,31,123,0.08)] p-5 flex flex-col items-center">
@@ -958,7 +958,9 @@ export default function ScannerClient() {
                 {/* Center elements */}
                 <div className="z-20 flex flex-col items-center">
                   <div className="mb-6">
-                    <QrCodeIcon size={72} className="text-[#94A3B8] opacity-60" />
+                    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" className="text-[#94A3B8] opacity-40">
+                      <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-3 0h2v2h-2v-2zm3 3h3v2h-3v-2zm-3 0h2v2h-2v-2zm3 3h3v2h-3v-2zm-3 0h2v2h-2v-2z" fill="currentColor"/>
+                    </svg>
                   </div>
                   <p className="text-[#64748B] text-[12px] font-medium tracking-wide">Position QR code within the frame</p>
                 </div>
