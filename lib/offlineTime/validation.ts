@@ -180,7 +180,7 @@ export function integrityLabel(level: TimeIntegrityLevel): string {
     case "compromised":
       return "Scanner needs quick reconnect";
     case "no-anchor":
-      return "Connect briefly to start";
+      return "";
     default:
       return "";
   }
