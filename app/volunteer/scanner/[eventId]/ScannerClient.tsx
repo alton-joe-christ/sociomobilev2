@@ -801,40 +801,35 @@ export default function ScannerClient() {
         ))}
       </div>
 
-      {/* ── Standard TopBar ── */}
+      {/* ── Standard TopBar (White) ── */}
       <header
-        className="sticky top-0 left-0 right-0 z-50 glass border-b border-[var(--color-border)] text-[var(--color-text)]"
+        className="sticky top-0 left-0 right-0 z-50 bg-white text-[#011F7B]"
         style={{ paddingTop: "var(--safe-top)", backfaceVisibility: "hidden" }}
       >
         <div
-          className="relative flex items-center px-4 gap-2"
+          className="relative flex items-center px-4"
           style={{ height: "var(--nav-height)" }}
         >
-          <button
+          <button 
+            className="absolute left-4 w-10 h-10 flex items-center justify-start text-[#011F7B]"
             onClick={() => { void stopScanner(); router.replace("/volunteer"); }}
-            className="flex items-center justify-center w-[34px] h-[34px] -ml-2 rounded-full active:bg-[var(--color-primary-light)] transition-colors text-[var(--color-text)]"
-            aria-label="Go back"
           >
-            <ArrowLeftIcon size={18} strokeWidth={2.2} />
+            <ArrowLeftIcon size={24} />
           </button>
-
-          <span className="absolute left-1/2 -translate-x-1/2 text-[17px] font-black tracking-tight text-[var(--color-primary)]">
+          <div className="flex-1" />
+          <span className="text-[20px] font-black tracking-tight text-[#011F7B]">
             SOCIO
           </span>
-          
           <div className="flex-1" />
         </div>
       </header>
 
-      {/* Time-integrity banner — surfaces clock-tampering, stale anchor, or
-          "no anchor yet" states in plain language (Phase 11). Hidden when the
-          system is fully trusted so it doesn't add visual noise. */}
-      {integrity && integrity.level !== "trusted" && (
+      {/* Time-integrity banner */}
+      {integrity && integrity.level !== "trusted" && integrity.level !== "no-anchor" && (
         <div
           className={`scan-status-row scan-status-${
             integrity.level === "compromised" ? "error"
             : integrity.level === "expired-anchor" ? "error"
-            : integrity.level === "no-anchor" ? "warning"
             : integrity.level === "stale-anchor" ? "warning"
             : "info"
           }`}
@@ -846,99 +841,109 @@ export default function ScannerClient() {
         </div>
       )}
 
-      <div className="scan-main-column px-4 pt-2 pb-4 max-w-[480px] mx-auto space-y-4">
-        {/* ── Event Info ── */}
-        <div className="flex flex-col items-center justify-center text-center px-2 mb-2 mt-2 shrink-0">
-          <h1 className="text-[20px] font-bold text-[var(--color-text)] leading-tight line-clamp-2">
-            {event.title}
-          </h1>
-          <div className="flex items-center justify-center gap-1.5 mt-1.5 text-[12px] font-semibold text-[var(--color-text-muted)] flex-wrap">
-            {headerMetadata.map((item, index) => (
-              <span key={`${item}-${index}`} className="flex items-center">
-                {item}
-                {index < headerMetadata.length - 1 && <span className="w-[3px] h-[3px] rounded-full bg-[#cbd5e1] mx-1.5" aria-hidden="true" />}
-              </span>
-            ))}
-          </div>
-          <div className="mt-3 inline-flex items-center justify-center h-[28px] px-3 rounded-full bg-[rgba(1,31,123,0.06)] text-[var(--color-primary)] text-[12px] font-bold border border-[rgba(1,31,123,0.1)] shadow-sm">
-            {scanCount} scanned
-          </div>
+      {/* ── Event Details ── */}
+      <div className="px-4 pt-6 pb-6 w-full flex flex-col items-center text-center relative z-10 flex-shrink-0">
+        <h1 className="text-[#000D3B] text-[22px] font-bold leading-tight max-w-[320px] mx-auto mb-2">{event.title}</h1>
+        <div className="flex items-center justify-center flex-wrap gap-2 text-[13px] text-[#94A3B8] font-medium mb-4">
+          {headerMetadata.map((item, index) => (
+            <span key={`${item}-${index}`} className="flex items-center">
+              {item}
+              {index < headerMetadata.length - 1 && <span className="w-[4px] h-[4px] rounded-full bg-[#cbd5e1] mx-2" aria-hidden="true" />}
+            </span>
+          ))}
         </div>
-        {/* ── Camera Viewport ── */}
-        <section
-          id="scan-viewport"
-          className={`scan-viewport scan-viewport-${viewportStatus}`}
-          aria-label="Camera scanner"
-        >
-          <video
-            ref={videoRef}
-            className={`scan-video${isNative ? " scan-video-native" : ""}`}
-            muted
-            playsInline
-            autoPlay
-          />
+        <div className="bg-[#EAF0F9] border border-[#D5E1F2] rounded-full px-5 py-1.5 text-[#011F7B] text-[13px] font-bold whitespace-nowrap">
+          {scanCount} scanned
+        </div>
+      </div>
 
-          <div className="scan-viewport-glow" aria-hidden="true" />
+      <div className="scan-main-column px-4 relative z-20 pb-24 max-w-[480px] mx-auto w-full flex-shrink-0 flex flex-col gap-6">
+        
+        {/* ── Scanner Card ── */}
+        <div className="w-full relative rounded-[28px] overflow-hidden shadow-[0_12px_40px_rgba(15,23,42,0.15)] bg-[#1A1A1A]" style={{ aspectRatio: '1' }}>
+          <section
+            id="scan-viewport"
+            className={`w-full h-full relative scan-viewport-${viewportStatus}`}
+            aria-label="Camera scanner"
+          >
+            <video
+              ref={videoRef}
+              className={`w-full h-full object-cover${isNative ? " opacity-0" : ""}`}
+              muted
+              playsInline
+              autoPlay
+            />
 
-          {/* Corner brackets + sweep line */}
-          {isScanning && (
-            <div className="scan-frame" aria-hidden="true">
-              <div className="scan-corner scan-corner-tl" />
-              <div className="scan-corner scan-corner-tr" />
-              <div className="scan-corner scan-corner-bl" />
-              <div className="scan-corner scan-corner-br" />
-              <div className="scan-line" />
-            </div>
-          )}
+            <div className="absolute inset-0 bg-gradient-to-b from-[rgba(0,0,0,0.2)] to-[rgba(0,0,0,0.6)] pointer-events-none" aria-hidden="true" />
 
-          {/* Idle state */}
-          {!isScanning && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm z-10">
-              {cameraError && <p className="text-[13px] font-semibold text-white bg-red-500/80 px-4 py-2 rounded-lg mb-4">{cameraError}</p>}
-              <button
-                id="start-scanning-btn"
-                className="scan-start-btn"
-                onClick={() => void startScanner()}
-              >
-                <QrCodeIcon size={20} className="text-[#FFBA09]" /> Start Scanning
-              </button>
-            </div>
-          )}
-          
-          {/* Action overlay when scanning */}
-          {isScanning && (
-             <div className="absolute bottom-6 left-0 right-0 flex justify-center z-20">
-                <button
-                  className="bg-[rgba(0,0,0,0.6)] backdrop-blur-md text-white border border-[rgba(255,255,255,0.15)] rounded-full px-6 py-2.5 text-[14px] font-semibold active:bg-[rgba(0,0,0,0.8)] transition-colors shadow-lg flex items-center gap-2"
-                  aria-label="Stop scanning"
-                  onClick={() => void stopScanner()}
-                >
-                  Stop Scanning
-                </button>
-             </div>
-          )}
-        </section>
+            {/* Corner brackets + sweep line */}
+            {isScanning && (
+              <div className="scan-frame" aria-hidden="true">
+                <div className="scan-corner scan-corner-tl" />
+                <div className="scan-corner scan-corner-tr" />
+                <div className="scan-corner scan-corner-bl" />
+                <div className="scan-corner scan-corner-br" />
+                <div className="scan-line" />
+              </div>
+            )}
+
+            {/* Idle state */}
+            {!isScanning && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+                <div className="scan-frame" aria-hidden="true">
+                  <div className="scan-corner scan-corner-tl" />
+                  <div className="scan-corner scan-corner-tr" />
+                  <div className="scan-corner scan-corner-bl" />
+                  <div className="scan-corner scan-corner-br" />
+                </div>
+                {cameraError ? (
+                  <p className="text-[12px] font-semibold text-white bg-red-500/90 px-4 py-1.5 rounded-lg mt-4 z-10">{cameraError}</p>
+                ) : (
+                  <button
+                    id="start-scanning-btn"
+                    className="mt-6 h-[50px] px-8 bg-[#011F7B] text-white rounded-[16px] font-bold text-[15px] flex items-center justify-center gap-2 active:scale-95 transition-transform z-20 shadow-lg"
+                    onClick={() => void startScanner()}
+                  >
+                    <QrCodeIcon size={20} className="text-[#FFBA09]" /> Start Scanning
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {/* Action overlay when scanning */}
+            {isScanning && (
+               <div className="absolute bottom-5 left-0 right-0 flex justify-center z-20">
+                  <button
+                    className="bg-[rgba(255,255,255,0.15)] backdrop-blur-md text-white border border-[rgba(255,255,255,0.2)] rounded-full px-6 py-2.5 text-[14px] font-semibold active:bg-[rgba(255,255,255,0.25)] transition-colors shadow-lg"
+                    aria-label="Stop scanning"
+                    onClick={() => void stopScanner()}
+                  >
+                    Stop Scanning
+                  </button>
+               </div>
+            )}
+          </section>
+        </div>
 
         {/* ── Recent Scans ── */}
-        <section className="scan-history-section flex-1 flex flex-col overflow-hidden" aria-label="Recent scans">
-          <div className="flex items-center justify-between px-1 mb-2 shrink-0">
-            <h3 className="text-[11px] font-bold text-[#0F172A] tracking-wider uppercase m-0 flex items-center gap-2">
-              Recent scans
+        <section className="bg-white rounded-[28px] p-2 flex flex-col" aria-label="Recent scans">
+          <div className="flex items-center justify-between px-2 mb-4">
+            <h3 className="text-[13px] font-bold text-[#0F172A] tracking-wider uppercase m-0 flex items-center gap-2">
+              RECENT SCANS
               {syncQueue.length > 0 && (
-                <span className="text-[#F59E0B] text-[9px]">● {syncQueue.length} pending sync</span>
+                <span className="text-[#F59E0B] text-[9px]">● {syncQueue.length} pending</span>
               )}
             </h3>
-            <span className="text-[11px] font-bold text-[#011F7B] uppercase cursor-pointer">View all</span>
+            <span className="text-[12px] font-bold text-[#011F7B] cursor-pointer">VIEW ALL</span>
           </div>
 
-          <div className="scan-history-list flex flex-col gap-2 overflow-y-auto flex-1 pb-4" id="scan-history-list">
+          <div className="flex flex-col gap-3">
             {history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-1.5 py-7 px-4 text-[#94A3B8]">
-                <QrCodeIcon size={22} />
-                <span className="text-[12px] font-semibold">No scans yet</span>
+              <div className="flex flex-col items-center justify-center py-6 text-[#94A3B8]">
+                <span className="text-[13px] font-medium">No scans yet</span>
               </div>
             ) : (
-              history.slice(0, 20).map(row => {
+              history.slice(0, 5).map(row => {
                 const getInitials = (name: string) => {
                   const parts = name.split(' ');
                   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
@@ -959,24 +964,27 @@ export default function ScannerClient() {
                   "✕";
                 
                 return (
-                  <div key={row.id} className={`scan-row scan-row-${row.status}`} onClick={() => setSelectedRow(row)}>
+                  <div key={row.id} className="flex items-center justify-between py-1 border-b border-[#F1F5F9] last:border-0" onClick={() => setSelectedRow(row)}>
                     <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
-                      <div className="scan-row-icon">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[14px] font-bold shrink-0 ${row.status === 'success' ? 'bg-[#D1FAE5] text-[#10B981]' : row.status === 'duplicate' ? 'bg-[#FEF3C7] text-[#F59E0B]' : row.status === 'error' ? 'bg-[#FEE2E2] text-[#EF4444]' : 'bg-[#E0E7FF] text-[#3B82F6]'}`}>
                         {getInitials(row.name)}
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-[14px] font-bold text-[#0F172A] truncate">{row.name}</span>
-                        <span className="text-[11px] font-medium text-[#64748B] truncate">General Admission</span>
+                        <span className="text-[12px] font-medium text-[#64748B] truncate">GA – Main Entrance</span>
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
-                      <div className={`scan-row-badge ${row.status === 'duplicate' ? 'scan-row-badge-duplicate' : row.status === 'error' || row.status === 'unauthorized' ? 'scan-row-badge-error' : ''}`}>
-                        {statusIcon} {statusLabel}
+                    <div className="flex items-center gap-4 shrink-0 ml-2">
+                      <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${row.status === 'success' ? 'bg-[#D1FAE5] text-[#10B981]' : row.status === 'duplicate' ? 'bg-[#FEF3C7] text-[#F59E0B]' : row.status === 'error' ? 'bg-[#FEE2E2] text-[#EF4444]' : 'bg-[#E0E7FF] text-[#3B82F6]'}`}>
+                        <span>{statusIcon}</span> {statusLabel}
                       </div>
-                      <span className="text-[11px] font-semibold text-[#94A3B8]">
-                        {row.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-medium text-[#94A3B8]">
+                          {row.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </span>
+                        <span className="text-[#CBD5E1] text-[16px]">›</span>
+                      </div>
                     </div>
                   </div>
                 );
