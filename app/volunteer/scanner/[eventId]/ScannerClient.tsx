@@ -4,21 +4,19 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth, type VolunteerEvent } from "@/context/AuthContext";
 import { useNetwork } from "@/context/NetworkContext";
-import { BlueprintFossilLoader, useLoading } from "@/components/loading";
+import { useLoading } from "@/components/loading";
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
   QrCodeIcon,
-  CameraIcon,
 } from "@/components/icons";
 import { getActiveVolunteerEvents } from "@/lib/volunteerAccess";
 import { apiRequest } from "@/lib/apiClient";
-import { formatDateShort } from "@/lib/dateUtils";
+import { formatDateShort, formatTime } from "@/lib/dateUtils";
 import {
   getScanner,
   type IScanner,
   type ScannerResult,
-  type PermissionStatus,
 } from "@/lib/ScannerService";
 import { Capacitor } from "@capacitor/core";
 import { Haptics, NotificationType } from "@capacitor/haptics";
@@ -75,12 +73,6 @@ interface HistoryRow {
   status: ScanStatus;
   time: Date;
   qrData?: string;
-}
-
-interface QueuedScan {
-  id: string;
-  payload: unknown;
-  timestamp: number;
 }
 
 function ScannerParticipantSheet({
@@ -183,14 +175,6 @@ const TOAST_ICON: Record<ScanStatus, string> = {
   offline:      "📡",
 };
 
-const ROW_ICON: Record<ScanStatus, string> = {
-  success:      "✓",
-  duplicate:    "⚠",
-  error:        "✕",
-  unauthorized: "✕",
-  offline:      "↑",
-};
-
 export default function ScannerClient() {
   const params  = useParams();
   const router  = useRouter();
@@ -205,7 +189,6 @@ export default function ScannerClient() {
 
   /* ── Scanner state ── */
   const [isScanning,   setIsScanning]   = useState(false);
-  const [permission,   setPermission]   = useState<PermissionStatus>("prompt");
   const [cameraError,  setCameraError]  = useState<string | null>(null);
 
   /* ── UX state ── */
@@ -231,7 +214,6 @@ export default function ScannerClient() {
   const [toasts,       setToasts]       = useState<ScanToast[]>([]);
   const [scanCount,    setScanCount]    = useState(0);
   const [viewportStatus, setViewportStatus] = useState<"idle"|"success"|"duplicate"|"error">("idle");
-  const [isVerifying,  setIsVerifying]  = useState(false);
   const [integrity,    setIntegrity]    = useState<TimeIntegrityReport | null>(null);
 
   // Dexie live queries
@@ -266,6 +248,16 @@ export default function ScannerClient() {
       new Date(getTimeIntegrityReport().trustedNowMs),
     ).find((e) => e.event_id === eventId) ?? null,
   [eventId, userData?.volunteerEvents]);
+
+  const headerMetadata = useMemo(() => {
+    if (!event) return [] as string[];
+
+    return [
+      formatDateShort(event.event_date),
+      event.event_time ? formatTime(event.event_time) : "Time TBD",
+      event.venue || event.campus_hosted_at || "Venue TBD",
+    ];
+  }, [event]);
 
   /* ── Component Lifecycle ── */
   useEffect(() => {
@@ -464,8 +456,6 @@ export default function ScannerClient() {
       : null;
 
     try {
-      setIsVerifying(true);
-
       let res: any;
       if (isActuallyOffline) {
         // ONLINE ONLY POLICY ENFORCEMENT
@@ -537,7 +527,6 @@ export default function ScannerClient() {
       }
     } finally {
       if (isNative) stopRecoveryTransition("scanner-verify");
-      setIsVerifying(false);
     }
   }, [session, event, userData, isNative, haptic, flashViewport, pushToast]);
 
@@ -557,7 +546,6 @@ export default function ScannerClient() {
         let perm = await scannerRef.current.checkPermission();
         if (perm !== "granted") {
           perm = await scannerRef.current.requestPermission();
-          setPermission(perm);
           if (perm !== "granted") throw new Error("Camera permission required");
         }
         // Stable ref-based dispatch — the scanner never sees a new function,
@@ -750,9 +738,7 @@ export default function ScannerClient() {
 
     try {
       scannerRef.current = getScanner();
-      void scannerRef.current.checkPermission().then((perm) => {
-        if (mountedRef.current) setPermission(perm);
-      });
+      void scannerRef.current.checkPermission();
     } catch (err) {
       console.error(`[Scanner] Initialization failed on mount:`, err);
     }
@@ -763,29 +749,6 @@ export default function ScannerClient() {
     };
   }, [isChecking, event, accessError, stopScanner]);
 
-
-  /* ── Camera controls ── */
-
-  /* ── Status config computation ──
-   * Split into two memos so Dexie's syncQueue.length churn never invalidates
-   * the primary scan-state memo (which is read on the hot scan path). Only the
-   * downstream consumer recomputes when the sync count shifts. */
-  const scanStatus = useMemo(() => {
-    if (cameraError) return { text: cameraError, tone: "error" as const };
-    if (isVerifying) return { text: "Verifying attendee…", tone: "info" as const };
-    if (!isScanning) return { text: "Ready to scan", tone: "idle" as const };
-    if (viewportStatus === "success") return { text: "Attendance marked", tone: "success" as const };
-    if (viewportStatus === "duplicate") return { text: "Already checked in", tone: "warning" as const };
-    if (viewportStatus === "error") return { text: "Invalid QR detected", tone: "error" as const };
-    return { text: "Scanning active", tone: "active" as const };
-  }, [cameraError, isVerifying, isScanning, viewportStatus]);
-
-  const statusConfig = useMemo(() => {
-    if (scanStatus.tone === "active" && syncQueue.length > 0) {
-      return { text: `Offline sync pending (${syncQueue.length})`, tone: "warning" as const };
-    }
-    return scanStatus;
-  }, [scanStatus, syncQueue.length]);
 
   /* ── Loading / Error guards ── */
   if (authLoading || isChecking) {
@@ -849,9 +812,17 @@ export default function ScannerClient() {
           <ArrowLeftIcon size={20} />
         </button>
 
-        <div className="absolute inset-x-0 top-auto flex flex-col items-center justify-center pointer-events-none mt-[calc(var(--nav-height)/2)]">
-          <span className="text-white font-bold text-lg tracking-widest">SOCIO</span>
-          <span className="text-white/80 text-xs mt-0.5 max-w-[200px] text-center truncate font-medium">{event.title}</span>
+        <div className="scan-header-center pointer-events-none">
+          <span className="scan-header-brand">SOCIO</span>
+          <h1 className="scan-header-event">{event.title}</h1>
+          <div className="scan-header-meta" aria-label="Event metadata">
+            {headerMetadata.map((item, index) => (
+              <span key={`${item}-${index}`} className="scan-header-meta-item">
+                {item}
+                {index < headerMetadata.length - 1 && <span className="scan-header-meta-dot" aria-hidden="true" />}
+              </span>
+            ))}
+          </div>
         </div>
 
         <div className="relative z-10">
@@ -911,6 +882,23 @@ export default function ScannerClient() {
             {/* Idle state */}
             {!isScanning && (
               <div className="scan-idle-overlay">
+                <div className="scan-idle-art" aria-hidden="true">
+                  <div className="scan-idle-grid" />
+                  <svg className="scan-idle-qr" viewBox="0 0 120 120" focusable="false" aria-hidden="true">
+                    <rect className="scan-idle-qr-block" x="8" y="8" width="32" height="32" rx="7" />
+                    <rect className="scan-idle-qr-block" x="80" y="8" width="32" height="32" rx="7" />
+                    <rect className="scan-idle-qr-block" x="8" y="80" width="32" height="32" rx="7" />
+                    <rect className="scan-idle-qr-block" x="48" y="48" width="24" height="24" rx="5" />
+                    <rect className="scan-idle-qr-block" x="78" y="48" width="14" height="14" rx="3" />
+                    <rect className="scan-idle-qr-block" x="48" y="78" width="14" height="14" rx="3" />
+                    <rect className="scan-idle-qr-block" x="72" y="78" width="12" height="12" rx="3" />
+                    <rect className="scan-idle-qr-block" x="32" y="56" width="8" height="8" rx="2" />
+                    <rect className="scan-idle-qr-block" x="56" y="32" width="8" height="8" rx="2" />
+                    <rect className="scan-idle-qr-block" x="96" y="56" width="8" height="8" rx="2" />
+                    <rect className="scan-idle-qr-block" x="56" y="96" width="8" height="8" rx="2" />
+                  </svg>
+                  <div className="scan-idle-halo" />
+                </div>
                 {cameraError && <p className="scan-camera-error">{cameraError}</p>}
                 <button
                   id="start-scanning-btn"
@@ -947,7 +935,7 @@ export default function ScannerClient() {
         </section>
 
         {/* ── Recent Scans ── */}
-        <section className="scan-history-section flex-1 flex flex-col overflow-hidden bg-transparent" aria-label="Recent scans">
+        <section className="scan-history-section flex-1 flex flex-col overflow-hidden" aria-label="Recent scans">
           <div className="flex items-center justify-between px-1 mb-2 shrink-0">
             <h3 className="text-[11px] font-bold text-[#0F172A] tracking-wider uppercase m-0 flex items-center gap-2">
               Recent scans
@@ -971,16 +959,24 @@ export default function ScannerClient() {
                   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
                   return name.substring(0, 2).toUpperCase();
                 };
+
+                const statusLabel =
+                  row.status === "success" ? "Verified" :
+                  row.status === "duplicate" ? "Recheck" :
+                  row.status === "offline" ? "Pending" :
+                  row.status === "unauthorized" ? "Not assigned" :
+                  "Error";
+
+                const statusIcon =
+                  row.status === "success" ? "✓" :
+                  row.status === "duplicate" ? "!" :
+                  row.status === "offline" ? "↑" :
+                  "✕";
                 
                 return (
-                  <div key={row.id} className="scan-row justify-between" onClick={() => setSelectedRow(row)}>
+                  <div key={row.id} className={`scan-row scan-row-${row.status}`} onClick={() => setSelectedRow(row)}>
                     <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
-                      <div className={`w-[38px] h-[38px] shrink-0 rounded-full flex items-center justify-center text-[13px] font-bold ${
-                        row.status === 'success' ? 'bg-[rgba(16,185,129,0.10)] text-[#10B981]' : 
-                        row.status === 'duplicate' ? 'bg-[rgba(245,158,11,0.10)] text-[#D97706]' : 
-                        row.status === 'offline' ? 'bg-[rgba(59,130,246,0.10)] text-[#3B82F6]' : 
-                        'bg-[rgba(239,68,68,0.10)] text-[#EF4444]'
-                      }`}>
+                      <div className="scan-row-icon">
                         {getInitials(row.name)}
                       </div>
                       <div className="flex flex-col min-w-0">
@@ -990,15 +986,8 @@ export default function ScannerClient() {
                     </div>
                     
                     <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
-                      <div className={`px-[10px] py-[4px] rounded-full text-[11px] font-semibold flex items-center gap-1 ${
-                        row.status === 'success' ? 'bg-[rgba(16,185,129,0.10)] text-[#10B981]' : 
-                        row.status === 'duplicate' ? 'bg-[rgba(245,158,11,0.10)] text-[#D97706]' : 
-                        row.status === 'offline' ? 'bg-[rgba(59,130,246,0.10)] text-[#3B82F6]' : 
-                        'bg-[rgba(239,68,68,0.10)] text-[#EF4444]'
-                      }`}>
-                        {row.status === 'success' ? '✓ Verified' : 
-                         row.status === 'duplicate' ? '! Recheck' : 
-                         row.status === 'offline' ? '↑ Pending' : '✕ Error'}
+                      <div className={`scan-row-badge ${row.status === 'duplicate' ? 'scan-row-badge-duplicate' : row.status === 'error' || row.status === 'unauthorized' ? 'scan-row-badge-error' : ''}`}>
+                        {statusIcon} {statusLabel}
                       </div>
                       <span className="text-[11px] font-semibold text-[#94A3B8]">
                         {row.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
