@@ -893,8 +893,8 @@ export default function ScannerClient() {
 
           {/* Idle state */}
           {!isScanning && (
-            <div className="scan-idle-overlay">
-              {cameraError && <p className="scan-camera-error">{cameraError}</p>}
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm z-10">
+              {cameraError && <p className="text-[13px] font-semibold text-white bg-red-500/80 px-4 py-2 rounded-lg mb-4">{cameraError}</p>}
               <button
                 id="start-scanning-btn"
                 className="scan-start-btn"
@@ -907,13 +907,13 @@ export default function ScannerClient() {
           
           {/* Action overlay when scanning */}
           {isScanning && (
-             <div className="absolute bottom-4 left-0 right-0 flex justify-center z-20">
+             <div className="absolute bottom-6 left-0 right-0 flex justify-center z-20">
                 <button
-                  className="bg-[rgba(0,0,0,0.4)] backdrop-blur-md text-white border border-[rgba(255,255,255,0.2)] rounded-full px-5 py-2 text-[13px] font-semibold active:bg-[rgba(0,0,0,0.6)] transition-colors shadow-lg"
+                  className="bg-[rgba(0,0,0,0.6)] backdrop-blur-md text-white border border-[rgba(255,255,255,0.15)] rounded-full px-6 py-2.5 text-[14px] font-semibold active:bg-[rgba(0,0,0,0.8)] transition-colors shadow-lg flex items-center gap-2"
                   aria-label="Stop scanning"
                   onClick={() => void stopScanner()}
                 >
-                  Stop
+                  Stop Scanning
                 </button>
              </div>
           )}

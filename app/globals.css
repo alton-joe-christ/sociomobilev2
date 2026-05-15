@@ -1067,35 +1067,28 @@ html, body {
 /* ── Camera Viewport — premium card ── */
 .scan-viewport {
   position: relative;
-  width: 88%;
+  width: 100%;
   align-self: center;
   display: flex;
   flex-direction: column;
   min-height: 320px;
   max-height: 350px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFF 100%);
+  background: #000;
   overflow: hidden;
-  border: 1px solid rgba(1,31,123,0.06);
-  transition: border-color 110ms ease, box-shadow 140ms ease;
+  border: none;
   flex-shrink: 0;
-  border-radius: 26px;
-  box-shadow: 0 18px 45px rgba(1,31,123,0.10);
+  border-radius: 28px;
+  box-shadow: 0 18px 45px rgba(1,31,123,0.14);
   contain: layout style;
 }
-.scan-viewport-success   { border-color: rgba(16,185,129,0.35); box-shadow: 0 18px 45px rgba(1,31,123,0.10), 0 0 0 1px rgba(16,185,129,0.18) inset; }
-.scan-viewport-duplicate { border-color: rgba(245,158,11,0.35); }
-.scan-viewport-error     { border-color: rgba(239,68,68,0.35); }
-.scan-viewport-idle      { border-color: rgba(1,31,123,0.08); }
+.scan-viewport-success   { /* Optional success states handled by toast or inner elements */ }
+.scan-viewport-duplicate { }
+.scan-viewport-error     { }
+.scan-viewport-idle      { }
 
 .scan-viewport-camera {
   position: relative;
   flex: 1 1 auto;
-  /* Blueprint-grid idle texture — extremely low opacity, premium operational feel */
-  background-color: #F8FAFF;
-  background-image:
-    linear-gradient(rgba(1,31,123,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(1,31,123,0.04) 1px, transparent 1px);
-  background-size: 24px 24px;
 }
 
 .scan-viewport-glow {
@@ -1117,26 +1110,26 @@ html, body {
 .scan-video-native { opacity: 0; }
 
 /* ── QR Corner Brackets — premium gold, thicker, no glow ── */
-.scan-frame { position: absolute; inset: 0; pointer-events: none; }
+.scan-frame { position: absolute; inset: 0; pointer-events: none; filter: drop-shadow(0 0 12px rgba(255,186,9,0.22)); }
 .scan-corner {
-  position: absolute; width: 32px; height: 32px;
+  position: absolute; width: 36px; height: 36px;
   border-color: #FFBA09; border-style: solid;
   border-radius: 2px;
 }
-.scan-corner-tl { top: 15%; left: 15%; border-width: 4px 0 0 4px; border-top-left-radius: 10px; }
-.scan-corner-tr { top: 15%; right: 15%; border-width: 4px 4px 0 0; border-top-right-radius: 10px; }
-.scan-corner-bl { bottom: 15%; left: 15%; border-width: 0 0 4px 4px; border-bottom-left-radius: 10px; }
-.scan-corner-br { bottom: 15%; right: 15%; border-width: 0 4px 4px 0; border-bottom-right-radius: 10px; }
+.scan-corner-tl { top: 15%; left: 15%; border-width: 5px 0 0 5px; border-top-left-radius: 10px; }
+.scan-corner-tr { top: 15%; right: 15%; border-width: 5px 5px 0 0; border-top-right-radius: 10px; }
+.scan-corner-bl { bottom: 15%; left: 15%; border-width: 0 0 5px 5px; border-bottom-left-radius: 10px; }
+.scan-corner-br { bottom: 15%; right: 15%; border-width: 0 5px 5px 0; border-bottom-right-radius: 10px; }
 
 /* ── Scan Line — subtle operational yellow sweep ── */
 .scan-line {
   position: absolute; left: 15%; right: 15%;
   height: 2px;
-  background: linear-gradient(90deg, rgba(255,186,9,0), rgba(255,186,9,0.9), rgba(255,186,9,0));
+  background: linear-gradient(90deg, transparent 0%, rgba(255,186,9,0.95) 50%, transparent 100%);
   top: 15%;
-  animation: scan-sweep 2.6s linear infinite;
+  animation: scan-sweep 2s ease-in-out infinite alternate;
   will-change: top;
-  box-shadow: 0 0 8px rgba(255,186,9,0.20);
+  box-shadow: 0 0 14px rgba(255,186,9,0.35);
 }
 
 /* ── Idle Overlay — clean white with blueprint grid showing through ── */
@@ -1203,8 +1196,8 @@ html, body {
   background: #011F7B;
   color: #FFFFFF;
   border: none;
-  border-radius: 18px;
-  font-size: 17px;
+  border-radius: 999px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1213,70 +1206,6 @@ html, body {
   animation: scan-btn-appear 300ms cubic-bezier(0.22,1,0.36,1) both;
 }
 .scan-start-btn:active { background: #1E3FAB; transform: scale(0.97); }
-
-/* ── Terminal panel — clean status + stop action ── */
-.scan-terminal-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 16px;
-  background: #ffffff;
-  border-top: 1px solid rgba(1,31,123,0.06);
-}
-
-.scan-terminal-copy {
-  flex: 1; min-width: 0;
-  display: flex; flex-direction: column; gap: 2px;
-}
-
-.scan-terminal-kicker {
-  font-size: 10px; font-weight: 700;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: rgba(100,116,139,0.7);
-}
-
-.scan-terminal-title {
-  margin: 0; font-size: 13px; line-height: 1.3;
-  font-weight: 700; color: var(--color-text);
-}
-
-.scan-terminal-meta {
-  margin: 0; font-size: 12px; line-height: 1.35;
-  color: var(--color-text-muted); font-weight: 500;
-}
-
-.scan-terminal-actions {
-  display: flex; flex-direction: row;
-  align-items: center; gap: 8px; flex-shrink: 0;
-}
-
-.scan-terminal-badge,
-.scan-event-status {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 24px; padding: 0 9px; border-radius: 6px;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: rgba(1,31,123,0.06); color: #011F7B;
-  border: 1px solid rgba(1,31,123,0.1);
-}
-
-.scan-terminal-badge-active {
-  background: rgba(16,185,129,0.10); color: #10B981;
-  border-color: rgba(16,185,129,0.16);
-}
-
-.scan-start-btn-inline,
-.scan-stop-btn-inline { position: static; transform: none; bottom: auto; left: auto; }
-
-.scan-stop-btn-inline {
-  background: rgba(1,31,123,0.05); color: #011F7B;
-  border: 1px solid rgba(1,31,123,0.14); border-radius: 8px;
-  padding: 5px 12px; font-size: 12px; font-weight: 600;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: background 100ms ease;
-}
-.scan-stop-btn-inline:active { background: rgba(1,31,123,0.1); }
 
 /* Event card — retained for compatibility */
 .scan-event-card {
