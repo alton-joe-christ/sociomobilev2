@@ -801,29 +801,28 @@ export default function ScannerClient() {
         ))}
       </div>
 
-      {/* ── Header ── */}
-      {/* ── Header ── */}
-      <header className="scan-header">
-        <button
-          className="scan-back-btn"
-          aria-label="Go back"
-          onClick={() => { void stopScanner(); router.replace("/volunteer"); }}
+      {/* ── Standard TopBar ── */}
+      <header
+        className="sticky top-0 left-0 right-0 z-50 glass border-b border-[var(--color-border)] text-[var(--color-text)]"
+        style={{ paddingTop: "var(--safe-top)", backfaceVisibility: "hidden" }}
+      >
+        <div
+          className="relative flex items-center px-4 gap-2"
+          style={{ height: "var(--nav-height)" }}
         >
-          <ArrowLeftIcon size={20} />
-        </button>
+          <button
+            onClick={() => { void stopScanner(); router.replace("/volunteer"); }}
+            className="flex items-center justify-center w-[34px] h-[34px] -ml-2 rounded-full active:bg-[var(--color-primary-light)] transition-colors text-[var(--color-text)]"
+            aria-label="Go back"
+          >
+            <ArrowLeftIcon size={18} strokeWidth={2.2} />
+          </button>
 
-        <div className="scan-header-center pointer-events-none">
-          <span className="scan-header-brand">SOCIO</span>
-          <h1 className="scan-header-event">{event.title}</h1>
-          <div className="scan-header-meta" aria-label="Event metadata">
-            {headerMetadata.map((item, index) => (
-              <span key={`${item}-${index}`} className="scan-header-meta-item">
-                {item}
-                {index < headerMetadata.length - 1 && <span className="scan-header-meta-dot" aria-hidden="true" />}
-              </span>
-            ))}
-          </div>
-          <button className="scan-count-badge pointer-events-auto">{scanCount} scanned</button>
+          <span className="absolute left-1/2 -translate-x-1/2 text-[17px] font-black tracking-tight text-[var(--color-primary)]">
+            SOCIO
+          </span>
+          
+          <div className="flex-1" />
         </div>
       </header>
 
@@ -847,7 +846,24 @@ export default function ScannerClient() {
         </div>
       )}
 
-      <div className="scan-main-column px-4 pt-4 pb-4 max-w-[480px] mx-auto space-y-4">
+      <div className="scan-main-column px-4 pt-2 pb-4 max-w-[480px] mx-auto space-y-4">
+        {/* ── Event Info ── */}
+        <div className="flex flex-col items-center justify-center text-center px-2 mb-2 mt-2 shrink-0">
+          <h1 className="text-[20px] font-bold text-[var(--color-text)] leading-tight line-clamp-2">
+            {event.title}
+          </h1>
+          <div className="flex items-center justify-center gap-1.5 mt-1.5 text-[12px] font-semibold text-[var(--color-text-muted)] flex-wrap">
+            {headerMetadata.map((item, index) => (
+              <span key={`${item}-${index}`} className="flex items-center">
+                {item}
+                {index < headerMetadata.length - 1 && <span className="w-[3px] h-[3px] rounded-full bg-[#cbd5e1] mx-1.5" aria-hidden="true" />}
+              </span>
+            ))}
+          </div>
+          <div className="mt-3 inline-flex items-center justify-center h-[28px] px-3 rounded-full bg-[rgba(1,31,123,0.06)] text-[var(--color-primary)] text-[12px] font-bold border border-[rgba(1,31,123,0.1)] shadow-sm">
+            {scanCount} scanned
+          </div>
+        </div>
         {/* ── Camera Viewport ── */}
         <section
           id="scan-viewport"
