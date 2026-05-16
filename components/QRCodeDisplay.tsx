@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { XIcon, AlertCircleIcon, Loader2Icon, CalendarIcon, ClockIcon, MapPinIcon, DownloadIcon } from "@/components/icons";
+import { XIcon, AlertCircleIcon, Loader2Icon, CalendarIcon, ClockIcon, MapPinIcon, DownloadIcon, ShieldCheckIcon, QrCodeIcon } from "@/components/icons";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/apiClient";
 import { generateSecurePassPayload } from "@/lib/walletCrypto";
@@ -343,137 +343,149 @@ export default function QRCodeDisplay({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center overscroll-none touch-none p-3 sm:p-4 pt-[6dvh]">
-      {/* Backdrop - High focus blackout */}
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overscroll-none touch-none p-4 pt-[5dvh]">
+      {/* Backdrop - Elevating the modal with subtle blur */}
       <AnimatePresence>
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-[#020617]/96 backdrop-blur-[24px]"
+          className="absolute inset-0 bg-[#020617]/68 backdrop-blur-[10px]"
         />
       </AnimatePresence>
 
-      {/* Modal Container - Slightly shifted up for better mobile reach/view */}
+      {/* Modal Container - Premium Fintech Surface */}
       <motion.div 
-        initial={{ opacity: 0, scale: 0.85, y: 30 }}
+        initial={{ opacity: 0, scale: 0.9, y: 40 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.85, y: 30 }}
-        transition={{ type: "spring", damping: 28, stiffness: 300 }}
-        className="relative w-full max-w-[360px] bg-white rounded-[40px] shadow-[0_50px_100px_rgba(0,0,0,0.7)] border border-white/10 flex flex-col overflow-hidden"
+        exit={{ opacity: 0, scale: 0.9, y: 40 }}
+        transition={{ type: "spring", damping: 30, stiffness: 350 }}
+        className="relative w-full max-w-[460px] bg-white rounded-[34px] shadow-[0_30px_80px_rgba(1,31,123,0.18)] flex flex-col overflow-hidden"
         style={{
-          maxHeight: 'min(92dvh, 660px)',
+          maxHeight: 'min(92dvh, 720px)',
         }}
       >
-        {/* Header Section - Reduced Blue height */}
-        <div className="relative h-[100px] shrink-0 overflow-hidden flex flex-col p-5 bg-[#011F7B]">
+        {/* Header Section - Operational Navy Gradient */}
+        <div className="relative shrink-0 overflow-hidden p-6 bg-gradient-to-br from-[#011F7B] to-[#1E3FAB] rounded-b-[28px]">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.6)_0,transparent_100%)] pointer-events-none" />
           
-          <div className="flex items-center justify-between relative z-10 mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#FFBA09] shadow-[0_0_10px_#FFBA09] animate-pulse" />
-              <span className="text-[9px] font-black tracking-[0.2em] text-white/90 uppercase">Event Pass</span>
+          <div className="flex items-start justify-between relative z-10 mb-6">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#FFBA09] shadow-[0_0_8px_#FFBA09]" />
+                <span className="text-[10px] font-black tracking-[0.25em] text-white/80 uppercase">Event Pass</span>
+              </div>
+              <h3 className="text-[28px] font-black text-white tracking-tight leading-tight">{eventTitle}</h3>
+              <p className="text-[12px] text-white/50 font-bold tracking-tight">Your pass to an amazing experience</p>
             </div>
             
             <button 
               onClick={onClose} 
-              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center border border-white/20 hover:bg-white/20 transition-all active:scale-90" 
+              className="w-[52px] h-[52px] rounded-full bg-white/12 flex items-center justify-center border border-white/18 backdrop-blur-[8px] hover:bg-white/20 transition-all active:scale-90" 
               aria-label="Close"
             >
-              <XIcon size={18} className="text-white" strokeWidth={3} />
+              <XIcon size={20} className="text-white" strokeWidth={2.5} />
             </button>
           </div>
 
-          <div className="mt-auto relative z-10 pb-1">
-            <h3 className="text-[18px] font-black text-white tracking-tight leading-tight truncate w-full">{eventTitle}</h3>
-            <p className="text-[10px] text-white/50 font-bold truncate w-full uppercase tracking-[0.15em]">{participantName}</p>
-          </div>
+          <div className="h-6" /> {/* Spacer for overlap */}
         </div>
 
-        {/* Content Section - Improved distribution */}
-        <div className="flex-1 flex flex-col px-5 py-6 items-center justify-between min-h-0 gap-4">
+        {/* Content Section */}
+        <div className="flex-1 flex flex-col px-[22px] pt-0 pb-[28px] items-center min-h-0">
           
-          {/* Info Bar - Optimized for No Overlap */}
-          <div className="w-full flex items-stretch bg-white border border-[#E2E8F0] rounded-[22px] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)] -mt-10 relative z-20 min-h-[64px]">
+          {/* Floating Info Card - 3 Columns with Dividers */}
+          <div className="w-full flex items-stretch bg-white rounded-[26px] p-[22px] shadow-[0_10px_30px_rgba(15,23,42,0.08)] -mt-10 relative z-20">
             {/* Date Section */}
-            <div className="flex-1 flex gap-2 min-w-0">
-              <CalendarIcon size={14} className="text-[#FFBA09] shrink-0 mt-0.5" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-tighter">Date</span>
-                <span className="text-[10px] text-[#0F172A] font-black leading-tight break-words">{dateInfo.main}</span>
-                <span className="text-[8px] text-[#94A3B8] font-bold leading-tight truncate">{dateInfo.sub}</span>
-              </div>
+            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+              <CalendarIcon size={14} className="text-[#FFBA09] mb-1.5" />
+              <span className="text-[9px] text-[#94A3B8] font-bold uppercase tracking-wider mb-1">Date</span>
+              <span className="text-[11px] text-[#0F172A] font-black leading-tight">{dateInfo.main}</span>
+              <span className="text-[9px] text-[#94A3B8] font-bold mt-0.5">{dateInfo.sub}</span>
             </div>
 
-            <div className="w-px bg-[#F1F5F9] mx-2" />
+            <div className="w-px bg-[#F1F5F9] mx-1" />
 
             {/* Time Section */}
-            <div className="flex-1 flex gap-2 min-w-0">
-              <ClockIcon size={14} className="text-[#FFBA09] shrink-0 mt-0.5" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-tighter">Time</span>
-                <span className="text-[10px] text-[#0F172A] font-black leading-tight break-words">{time || "TBA"}</span>
-                <span className="text-[8px] text-[#94A3B8] font-bold leading-tight truncate">IST</span>
-              </div>
+            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+              <ClockIcon size={14} className="text-[#FFBA09] mb-1.5" />
+              <span className="text-[9px] text-[#94A3B8] font-bold uppercase tracking-wider mb-1">Time</span>
+              <span className="text-[11px] text-[#0F172A] font-black leading-tight">{time || "12:00:00"}</span>
+              <span className="text-[9px] text-[#94A3B8] font-bold mt-0.5">IST</span>
             </div>
 
-            <div className="w-px bg-[#F1F5F9] mx-2" />
+            <div className="w-px bg-[#F1F5F9] mx-1" />
 
             {/* Venue Section */}
-            <div className="flex-1 flex gap-2 min-w-0">
-              <MapPinIcon size={14} className="text-[#FFBA09] shrink-0 mt-0.5" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-tighter">Venue</span>
-                <span className="text-[10px] text-[#0F172A] font-black leading-tight break-words" title={venue}>{venue || "TBA"}</span>
-              </div>
+            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+              <MapPinIcon size={14} className="text-[#FFBA09] mb-1.5" />
+              <span className="text-[9px] text-[#94A3B8] font-bold uppercase tracking-wider mb-1">Venue</span>
+              <span className="text-[11px] text-[#0F172A] font-black leading-tight truncate w-full px-1" title={venue}>{venue || "TBA"}</span>
             </div>
           </div>
 
-          {/* QR Container - Vertically Balanced */}
-          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-[160px]">
+          {/* QR Container - Pure Clarity */}
+          <div className="my-8 flex items-center justify-center">
             {loading ? (
-              <Loader2Icon size={32} className="animate-spin text-[#011F7B] opacity-20" />
+              <div className="w-[240px] h-[240px] flex items-center justify-center bg-gray-50 rounded-[30px]">
+                <Loader2Icon size={32} className="animate-spin text-[#011F7B] opacity-20" />
+              </div>
             ) : error ? (
-              <div className="text-center p-4 bg-red-50 rounded-2xl border border-red-100">
-                <AlertCircleIcon size={20} className="text-red-500 mx-auto mb-2" />
-                <p className="text-[11px] text-red-600 font-bold">{error}</p>
+              <div className="w-[240px] h-[240px] flex flex-col items-center justify-center p-6 text-center bg-red-50 rounded-[30px] border border-red-100">
+                <AlertCircleIcon size={24} className="text-red-500 mb-2" />
+                <p className="text-[12px] text-red-600 font-bold">{error}</p>
               </div>
             ) : (
-              <div className="p-3 bg-white border-[2px] border-[#F8FAFC] rounded-[36px] shadow-sm ring-8 ring-[#F8FAFC]/30">
+              <div className="p-5 bg-white rounded-[30px] shadow-[0_12px_40px_rgba(15,23,42,0.08)] border border-[#F8FAFC]">
                 <img 
                   src={qrImage || ""} 
-                  alt="QR code" 
-                  className="w-[150px] h-[150px] sm:w-[160px] sm:h-[160px] object-contain" 
+                  alt="Secure QR code" 
+                  className="w-[180px] h-[180px] sm:w-[200px] sm:h-[200px] object-contain" 
                   style={{ imageRendering: 'pixelated' }} 
                 />
               </div>
             )}
           </div>
 
-          {/* Actions - More Compact */}
-          <div className="w-full space-y-3.5">
+          {/* Actions - Premium yellow button */}
+          <div className="w-full mt-2">
             <button
               onClick={downloadAsPDF}
               disabled={pdfLoading || loading}
-              className="w-full h-[54px] bg-[#FFBA09] text-[#011F7B] rounded-2xl font-black text-[14px] shadow-[0_12px_24px_rgba(255,186,9,0.3)] flex items-center justify-center gap-2.5 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full h-[64px] bg-[#FFBA09] text-[#011F7B] rounded-[22px] font-black text-[15px] shadow-[0_10px_24px_rgba(255,186,9,0.28)] flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
             >
               {pdfLoading ? (
-                <Loader2Icon size={18} className="animate-spin" />
+                <Loader2Icon size={20} className="animate-spin" />
               ) : (
                 <>
-                  <DownloadIcon size={20} strokeWidth={3} />
+                  <DownloadIcon size={22} strokeWidth={3} />
                   Download Pass (PDF)
                 </>
               )}
             </button>
 
-            <div className="bg-[#FFF9E8] rounded-2xl py-3 px-4 flex flex-col items-center justify-center border border-[rgba(255,186,9,0.1)]">
-              <p className="text-[9px] font-black text-[#011F7B] text-center uppercase tracking-[0.15em] opacity-80">
-                Event Attendance QR
-              </p>
-              <span className="text-[7.5px] text-[#011F7B]/40 font-bold mt-1 tracking-tight break-all text-center">
-                ID: {registrationId}
-              </span>
+            {/* Attendance Info Card */}
+            <div className="mt-4 bg-gradient-to-b from-[#FFFDF5] to-[#FFF9E8] rounded-[22px] p-[18px] flex items-center gap-4 border border-[rgba(255,186,9,0.24)]">
+              <div className="w-10 h-10 rounded-xl bg-[#FFBA09]/10 flex items-center justify-center shrink-0">
+                <QrCodeIcon size={20} className="text-[#FFBA09]" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <p className="text-[10px] font-black text-[#011F7B] uppercase tracking-[0.1em]">Event Attendance QR</p>
+                <span className="text-[9px] text-[#011F7B]/50 font-bold truncate tracking-tight">
+                  ID: {registrationId}
+                </span>
+              </div>
+            </div>
+
+            {/* Footer Note */}
+            <div className="mt-6 pt-6 border-t border-[#F1F5F9] flex items-start gap-3 px-1">
+              <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <ShieldCheckIcon size={16} className="text-blue-500" />
+              </div>
+              <div className="flex flex-col">
+                <p className="text-[11px] text-[#334155] font-bold leading-tight">Show this QR code at the event entrance</p>
+                <p className="text-[10px] text-[#94A3B8] font-medium mt-0.5">You will be scanned for attendance</p>
+              </div>
             </div>
           </div>
 
