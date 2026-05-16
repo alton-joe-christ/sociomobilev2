@@ -98,24 +98,37 @@ export default function QRCodeDisplay({
         setLoading(true);
         setError(null);
 
-        // SIMULATED BACKEND CALL:
-        // In a real full-stack architecture, this would fetch from the POST /api/wallet/qr 
-        // endpoint we created. Because this is a static exported PWA, we generate the signed
-        // JWT locally using Web Crypto to fix the 404 deployment error.
-        const token = await generateSecurePassPayload({
-          attendeeId: userData?.visitor_id || userData?.register_number || 'unknown',
-          eventId,
-          registrationId,
-          participantName
-        });
+        const cacheKey = `socio_credential_${registrationId}`;
+        let token = localStorage.getItem(cacheKey);
 
-        if (!token) throw new Error("No secure token received");
+        // Validate existing token expiry
+        if (token) {
+          try {
+            const decoded = JSON.parse(atob(token.split('.')[1]));
+            if (decoded.exp && (decoded.exp * 1000) < Date.now()) {
+              token = null; // Expired, regenerate
+            }
+          } catch {
+            token = null;
+          }
+        }
 
-        // Generate QR code image from the JWT token using SVG for perfect crispness
+        if (!token) {
+          token = await generateSecurePassPayload({
+            attendeeId: userData?.visitor_id || userData?.register_number || 'unknown',
+            eventId,
+            registrationId,
+            participantName
+          });
+          if (!token) throw new Error("No secure token received");
+          localStorage.setItem(cacheKey, token);
+        }
+
+        // Generate QR code image from the stable JWT token using SVG for perfect crispness
         const svgString = await QRCode.toString(token, {
           type: 'svg',
-          margin: 1,
-          errorCorrectionLevel: 'M',
+          margin: 4, // Upgraded quiet zone for scannability
+          errorCorrectionLevel: 'H', // Upgraded error correction to High
           color: {
             dark: '#000000', // Maximum contrast for scanners
             light: '#FFFFFF'

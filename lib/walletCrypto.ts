@@ -12,12 +12,11 @@ export async function generateSecurePassPayload(payload: {
     attendeeId: payload.attendeeId,
     eventId: payload.eventId,
     registrationId: payload.registrationId,
-    participantName: payload.participantName,
+    credentialVersion: "1.0"
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    // Passes could be valid for 48 hours to cover the event window offline
-    .setExpirationTime('48h')
+    .setExpirationTime('365d')
     .sign(getSecret());
     
   return jwt;
