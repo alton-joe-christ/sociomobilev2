@@ -335,7 +335,7 @@ export default function QRCodeDisplay({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center overscroll-none touch-none p-4">
-      {/* Backdrop - Absolute blackout for focus */}
+      {/* Backdrop - High focus blackout */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -351,109 +351,117 @@ export default function QRCodeDisplay({
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
         className="relative w-full max-w-[360px] bg-white rounded-[40px] shadow-[0_50px_100px_rgba(0,0,0,0.7)] border border-white/10 flex flex-col overflow-hidden"
         style={{
-          maxHeight: 'min(88dvh, 640px)',
+          maxHeight: 'min(92dvh, 660px)',
         }}
       >
-        {/* Header Section */}
-        <div className="relative h-[115px] shrink-0 overflow-hidden flex flex-col p-6 bg-[#011F7B]">
+        {/* Header Section - Reduced Blue height */}
+        <div className="relative h-[100px] shrink-0 overflow-hidden flex flex-col p-5 bg-[#011F7B]">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.6)_0,transparent_100%)] pointer-events-none" />
           
-          <div className="flex items-center justify-between relative z-10 mb-4">
+          <div className="flex items-center justify-between relative z-10 mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#FFBA09] shadow-[0_0_10px_#FFBA09] animate-pulse" />
-              <span className="text-[10px] font-black tracking-[0.25em] text-white/90 uppercase">Official Pass</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-[#FFBA09] shadow-[0_0_10px_#FFBA09] animate-pulse" />
+              <span className="text-[9px] font-black tracking-[0.2em] text-white/90 uppercase">Official Pass</span>
             </div>
             
             <button 
               onClick={onClose} 
-              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20 hover:bg-white/20 transition-all active:scale-90" 
+              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center border border-white/20 hover:bg-white/20 transition-all active:scale-90" 
               aria-label="Close"
             >
-              <XIcon size={20} className="text-white" strokeWidth={3} />
+              <XIcon size={18} className="text-white" strokeWidth={3} />
             </button>
           </div>
 
-          <div className="mt-auto relative z-10">
-            <h3 className="text-[22px] font-black text-white tracking-tight leading-tight truncate w-full">{eventTitle}</h3>
-            <p className="text-[11px] text-white/50 font-bold truncate w-full uppercase tracking-[0.2em]">{participantName}</p>
+          <div className="mt-auto relative z-10 pb-1">
+            <h3 className="text-[18px] font-black text-white tracking-tight leading-tight truncate w-full">{eventTitle}</h3>
+            <p className="text-[10px] text-white/50 font-bold truncate w-full uppercase tracking-[0.15em]">{participantName}</p>
           </div>
         </div>
 
-        {/* Content Section - Perfect distribution */}
-        <div className="flex-1 flex flex-col p-6 items-center justify-between min-h-0">
+        {/* Content Section - Improved distribution */}
+        <div className="flex-1 flex flex-col px-5 py-6 items-center justify-between min-h-0 gap-4">
           
-          {/* Info Bar - Reference style */}
-          <div className="w-full grid grid-cols-3 gap-0 bg-white border border-[#E2E8F0] rounded-[24px] p-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)] -mt-10 relative z-20">
-            <div className="flex gap-2.5 pr-2">
-              <CalendarIcon size={16} className="text-[#FFBA09] shrink-0 mt-0.5" />
+          {/* Info Bar - Optimized for No Overlap */}
+          <div className="w-full flex items-stretch bg-white border border-[#E2E8F0] rounded-[22px] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)] -mt-10 relative z-20 min-h-[64px]">
+            {/* Date Section */}
+            <div className="flex-1 flex gap-2 min-w-0">
+              <CalendarIcon size={14} className="text-[#FFBA09] shrink-0 mt-0.5" />
               <div className="flex flex-col min-w-0">
-                <span className="text-[9px] text-[#94A3B8] font-bold">Date</span>
-                <span className="text-[11px] text-[#0F172A] font-black leading-tight truncate">{dateInfo.main}</span>
-                <span className="text-[9px] text-[#94A3B8] font-medium leading-tight truncate">{dateInfo.sub}</span>
+                <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-tighter">Date</span>
+                <span className="text-[10px] text-[#0F172A] font-black leading-tight break-words">{dateInfo.main}</span>
+                <span className="text-[8px] text-[#94A3B8] font-bold leading-tight truncate">{dateInfo.sub}</span>
               </div>
             </div>
-            <div className="flex gap-2.5 border-l border-[#F1F5F9] px-2.5">
-              <ClockIcon size={16} className="text-[#FFBA09] shrink-0 mt-0.5" />
+
+            <div className="w-px bg-[#F1F5F9] mx-2" />
+
+            {/* Time Section */}
+            <div className="flex-1 flex gap-2 min-w-0">
+              <ClockIcon size={14} className="text-[#FFBA09] shrink-0 mt-0.5" />
               <div className="flex flex-col min-w-0">
-                <span className="text-[9px] text-[#94A3B8] font-bold">Time</span>
-                <span className="text-[11px] text-[#0F172A] font-black leading-tight truncate">{time || "TBA"}</span>
-                <span className="text-[9px] text-[#94A3B8] font-medium leading-tight truncate">IST</span>
+                <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-tighter">Time</span>
+                <span className="text-[10px] text-[#0F172A] font-black leading-tight break-words">{time || "TBA"}</span>
+                <span className="text-[8px] text-[#94A3B8] font-bold leading-tight truncate">IST</span>
               </div>
             </div>
-            <div className="flex gap-2.5 border-l border-[#F1F5F9] pl-2.5">
-              <MapPinIcon size={16} className="text-[#FFBA09] shrink-0 mt-0.5" />
+
+            <div className="w-px bg-[#F1F5F9] mx-2" />
+
+            {/* Venue Section */}
+            <div className="flex-1 flex gap-2 min-w-0">
+              <MapPinIcon size={14} className="text-[#FFBA09] shrink-0 mt-0.5" />
               <div className="flex flex-col min-w-0">
-                <span className="text-[9px] text-[#94A3B8] font-bold">Venue</span>
-                <span className="text-[11px] text-[#0F172A] font-black leading-tight truncate">{venue || "TBA"}</span>
-                <span className="text-[9px] text-[#94A3B8] font-medium leading-tight truncate">Campus</span>
+                <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-tighter">Venue</span>
+                <span className="text-[10px] text-[#0F172A] font-black leading-tight break-words" title={venue}>{venue || "TBA"}</span>
               </div>
             </div>
           </div>
 
-          {/* QR Container - Vertically Centered in remaining space */}
-          <div className="flex-1 flex flex-col items-center justify-center w-full py-4">
+          {/* QR Container - Vertically Balanced */}
+          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-[160px]">
             {loading ? (
-              <Loader2Icon size={32} className="animate-spin text-[#011F7B]" />
+              <Loader2Icon size={32} className="animate-spin text-[#011F7B] opacity-20" />
             ) : error ? (
               <div className="text-center p-4 bg-red-50 rounded-2xl border border-red-100">
-                <AlertCircleIcon size={24} className="text-red-500 mx-auto mb-2" />
-                <p className="text-[12px] text-red-600 font-bold">{error}</p>
+                <AlertCircleIcon size={20} className="text-red-500 mx-auto mb-2" />
+                <p className="text-[11px] text-red-600 font-bold">{error}</p>
               </div>
             ) : (
-              <div className="p-3 bg-white border-[3px] border-[#F8FAFC] rounded-[40px] shadow-sm">
+              <div className="p-3 bg-white border-[2px] border-[#F8FAFC] rounded-[36px] shadow-sm ring-8 ring-[#F8FAFC]/30">
                 <img 
                   src={qrImage || ""} 
                   alt="QR code" 
-                  className="w-[170px] h-[170px] object-contain" 
+                  className="w-[150px] h-[150px] sm:w-[160px] sm:h-[160px] object-contain" 
                   style={{ imageRendering: 'pixelated' }} 
                 />
               </div>
             )}
           </div>
 
-          {/* Actions - Locked at bottom of content */}
-          <div className="w-full space-y-4">
+          {/* Actions - More Compact */}
+          <div className="w-full space-y-3.5">
             <button
               onClick={downloadAsPDF}
               disabled={pdfLoading || loading}
-              className="w-full h-[60px] bg-[#FFBA09] text-[#011F7B] rounded-2xl font-black text-[16px] shadow-[0_12px_24px_rgba(255,186,9,0.3)] flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full h-[54px] bg-[#FFBA09] text-[#011F7B] rounded-2xl font-black text-[14px] shadow-[0_12px_24px_rgba(255,186,9,0.3)] flex items-center justify-center gap-2.5 active:scale-[0.98] transition-all disabled:opacity-50"
             >
               {pdfLoading ? (
-                <Loader2Icon size={20} className="animate-spin" />
+                <Loader2Icon size={18} className="animate-spin" />
               ) : (
                 <>
-                  <DownloadIcon size={22} strokeWidth={3} />
-                  Download PDF Pass
+                  <DownloadIcon size={20} strokeWidth={3} />
+                  Download Pass (PDF)
                 </>
               )}
             </button>
 
-            <div className="bg-[#FFF9E8] rounded-2xl py-3.5 px-4 flex flex-col items-center justify-center">
-              <p className="text-[10px] font-black text-[#011F7B] text-center uppercase tracking-widest">
+            <div className="bg-[#FFF9E8] rounded-2xl py-3 px-4 flex flex-col items-center justify-center border border-[rgba(255,186,9,0.1)]">
+              <p className="text-[9px] font-black text-[#011F7B] text-center uppercase tracking-[0.15em] opacity-80">
                 Official Attendance QR
               </p>
-              <span className="text-[8px] text-[#011F7B]/40 font-bold mt-1 tracking-tight">
-                SECURE CREDENTIAL ID: {registrationId}
+              <span className="text-[7.5px] text-[#011F7B]/40 font-bold mt-1 tracking-tight break-all text-center">
+                ID: {registrationId}
               </span>
             </div>
           </div>
