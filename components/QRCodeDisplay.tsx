@@ -334,7 +334,7 @@ export default function QRCodeDisplay({
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#0F172A]/45 backdrop-blur-[12px] p-4 transition-opacity animate-fade-in duration-180">
       <div 
-        className="relative w-full max-w-[380px] max-h-[85vh] overflow-y-auto bg-white rounded-[32px] shadow-[0_20px_60px_rgba(1,31,123,0.18)] border border-[var(--color-border)] flex flex-col hide-scrollbar"
+        className="relative w-full max-w-[380px] max-h-[85vh] overflow-hidden bg-white rounded-[32px] shadow-[0_20px_60px_rgba(1,31,123,0.18)] border border-[var(--color-border)] flex flex-col hide-scrollbar"
         style={{
           width: 'calc(100vw - 32px)',
           animation: 'modalEnter 180ms ease-out forwards'
