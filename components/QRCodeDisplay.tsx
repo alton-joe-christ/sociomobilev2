@@ -1,4 +1,5 @@
 "use client";
+import { createPortal } from "react-dom";
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
@@ -331,17 +332,27 @@ export default function QRCodeDisplay({
     };
   };
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
   const dateInfo = formatEventDate(date);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-start justify-center overscroll-none touch-none p-3 sm:p-4 pt-[6dvh]">
       {/* Backdrop - High focus blackout */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-[#020617]/96 backdrop-blur-[24px]"
-      />
+      <AnimatePresence>
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-[#020617]/96 backdrop-blur-[24px]"
+        />
+      </AnimatePresence>
 
       {/* Modal Container - Slightly shifted up for better mobile reach/view */}
       <motion.div 
@@ -472,6 +483,7 @@ export default function QRCodeDisplay({
       <style jsx>{`
         .overscroll-none { overscroll-behavior: none; }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
