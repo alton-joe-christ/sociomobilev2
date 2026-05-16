@@ -81,7 +81,7 @@ function getQuickActions(notificationCount: number, volunteerCount: number, isCa
   return [primaryAction, ...baseActions];
 }
 
-function UpcomingEventItem({ event }: { event: FetchedEvent }) {
+const UpcomingEventItem = React.memo(function UpcomingEventItem({ event }: { event: FetchedEvent }) {
   const isFree = !event.registration_fee || event.registration_fee === 0;
   const daysAway = getDaysFromToday(event.event_date);
   const statusLabel =
@@ -153,7 +153,7 @@ function UpcomingEventItem({ event }: { event: FetchedEvent }) {
       </div>
     </Link>
   );
-}
+});
 
 export default function HomePage() {
   const { user, userData, isLoading: authLoading, isAuthenticated, isAuthReady } = useAuth();

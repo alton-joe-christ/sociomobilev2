@@ -3,15 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 // Capacitor imports are deferred via dynamic import inside useEffect to prevent SSR errors
-import DesktopGate from "@/components/DesktopGate";
-import OrientationGate from "@/components/OrientationGate";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
-import InstallPrompt from "@/components/InstallPrompt";
 import PageTransition from "@/components/PageTransition";
-import NativeLaunchController from "@/components/native/NativeLaunchController";
-import NetworkBanner from "@/components/NetworkBanner";
-import NotificationDiagnostics from "@/components/NotificationDiagnostics";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
 import { isCampusDismissedRecently } from "@/components/CampusSelector";
@@ -21,7 +15,11 @@ import { logCapacitorPerfAudit, logMemorySnapshot, startFrameMonitor, startPerfS
 const ChatbotFab = dynamic(() => import("@/components/ChatbotFab"), { ssr: false });
 const SmartNotificationPrompt = dynamic(() => import("@/components/SmartNotificationPrompt"), { ssr: false });
 const CampusSelector = dynamic(() => import("@/components/CampusSelector"), { ssr: false });
-const ShakeToScanListener = dynamic(() => import("@/components/ShakeToScanListener"), { ssr: false });
+const InstallPrompt = dynamic(() => import("@/components/InstallPrompt"), { ssr: false });
+const NetworkBanner = dynamic(() => import("@/components/NetworkBanner"), { ssr: false });
+const OrientationGate = dynamic(() => import("@/components/OrientationGate"), { ssr: false });
+const NotificationDiagnostics = dynamic(() => import("@/components/NotificationDiagnostics"), { ssr: false });
+const NativeLaunchController = dynamic(() => import("@/components/native/NativeLaunchController"), { ssr: false });
 
 const NO_BOTTOM_NAV = ["/auth", "/auth/callback", "/offline"];
 const NO_TOP_BAR = ["/auth/callback", "/offline", "/notifications", "/volunteer/scanner"];

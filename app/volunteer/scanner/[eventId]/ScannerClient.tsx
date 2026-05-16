@@ -407,6 +407,7 @@ export default function ScannerClient() {
     if (qrData.startsWith('eyJ') && qrData.split('.').length === 3) {
       isJwt = true;
       try {
+        const jose = await import("jose");
         const decoded = jose.decodeJwt(qrData);
         
         // 1. Verify Expiry
@@ -794,14 +795,29 @@ export default function ScannerClient() {
   useEffect(() => {
     if (isChecking || !event || accessError) return;
 
-    try {
-      scannerRef.current = getScanner();
-      void scannerRef.current.checkPermission();
-    } catch (err) {
-      console.error(`[Scanner] Initialization failed on mount:`, err);
+    let initTimer: any;
+    const initScanner = () => {
+      try {
+        scannerRef.current = getScanner();
+        void scannerRef.current.checkPermission();
+      } catch (err) {
+        console.error(`[Scanner] Initialization failed on mount:`, err);
+      }
+    };
+
+    // Defer initialization to avoid blocking the main thread during hydration/skeleton paint
+    if (typeof requestIdleCallback !== "undefined") {
+      initTimer = requestIdleCallback(initScanner, { timeout: 2000 });
+    } else {
+      initTimer = setTimeout(initScanner, 200);
     }
 
     return () => {
+      if (typeof cancelIdleCallback !== "undefined" && typeof initTimer === "number") {
+        cancelIdleCallback(initTimer);
+      } else {
+        clearTimeout(initTimer);
+      }
       void stopScanner();
     };
   }, [isChecking, event, accessError, stopScanner]);

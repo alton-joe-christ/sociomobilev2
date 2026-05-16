@@ -334,9 +334,10 @@ export default function QRCodeDisplay({
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#0F172A]/45 backdrop-blur-[12px] p-4 transition-opacity animate-fade-in duration-180">
       <div 
-        className="relative w-full max-w-[380px] max-h-[85vh] overflow-hidden bg-white rounded-[32px] shadow-[0_20px_60px_rgba(1,31,123,0.18)] border border-[var(--color-border)] flex flex-col hide-scrollbar"
+        className="relative w-full max-w-[380px] overflow-hidden bg-white rounded-[32px] shadow-[0_20px_60px_rgba(1,31,123,0.18)] border border-[var(--color-border)] flex flex-col hide-scrollbar"
         style={{
           width: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)',
           animation: 'modalEnter 180ms ease-out forwards'
         }}
       >
@@ -364,9 +365,9 @@ export default function QRCodeDisplay({
           </div>
         </div>
 
-        <div className="p-5 flex flex-col items-center">
+        <div className="p-5 flex flex-col items-center flex-1 overflow-y-auto hide-scrollbar" style={{ paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
           
-          <div className="w-full grid grid-cols-3 gap-2 bg-slate-50/80 border border-slate-100 rounded-[20px] p-3 -mt-9 relative z-20 shadow-sm backdrop-blur-md">
+          <div className="w-full grid grid-cols-3 gap-2 bg-slate-50/80 border border-slate-100 rounded-[20px] p-3 -mt-9 relative z-20 shadow-sm backdrop-blur-md shrink-0">
             <div className="flex flex-col pl-1">
               <div className="flex items-center gap-1.5 mb-1">
                 <CalendarIcon size={14} className="text-[#FFBA09]" />
@@ -392,12 +393,12 @@ export default function QRCodeDisplay({
           </div>
 
           {loading ? (
-            <div className="py-12 text-[#64748B] flex flex-col items-center">
+            <div className="py-12 text-[#64748B] flex flex-col items-center shrink-0">
               <Loader2Icon size={28} className="animate-spin mb-3 text-[#1E3FAB]" />
               <p className="text-[13px] font-medium">Generating secure QR pass...</p>
             </div>
           ) : error ? (
-            <div className="py-8 w-full">
+            <div className="py-8 w-full shrink-0">
               <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex flex-col items-center text-center">
                 <AlertCircleIcon size={28} className="text-red-500 mb-2" />
                 <p className="text-[13px] text-red-600 font-medium">{error}</p>
@@ -406,21 +407,21 @@ export default function QRCodeDisplay({
           ) : (
             <>
               {qrImage && (
-                <div className="mt-6 p-5 bg-white border border-[#EEF2FF] rounded-[24px] shadow-[0_4px_24px_rgba(1,31,123,0.08)] flex items-center justify-center">
+                <div className="mt-5 p-4 bg-white border border-[#EEF2FF] rounded-[24px] shadow-[0_4px_24px_rgba(1,31,123,0.08)] flex items-center justify-center shrink-0">
                   <img 
                     src={qrImage} 
                     alt="QR code ticket" 
-                    className="w-[180px] h-[180px] object-contain" 
+                    className="w-[150px] h-[150px] md:w-[170px] md:h-[170px] object-contain" 
                     style={{ imageRendering: 'pixelated', transform: 'translateZ(0)' }} 
                   />
                 </div>
               )}
               
-              <div className="w-full mt-8 flex flex-col gap-3">
+              <div className="w-full mt-6 flex flex-col gap-3 shrink-0">
                 <button
                   onClick={downloadAsPDF}
                   disabled={pdfLoading}
-                  className="w-full h-[54px] bg-[#FFBA09] text-[#011F7B] rounded-[18px] font-semibold text-[15px] shadow-[0_8px_20px_rgba(255,186,9,0.28)] flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-70 disabled:active:scale-100"
+                  className="w-full h-[54px] shrink-0 bg-[#FFBA09] text-[#011F7B] rounded-[18px] font-semibold text-[15px] shadow-[0_8px_20px_rgba(255,186,9,0.28)] flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-70 disabled:active:scale-100"
                 >
                   {pdfLoading ? (
                     <>
@@ -437,14 +438,14 @@ export default function QRCodeDisplay({
                   )}
                 </button>
                 
-                <div className="flex gap-3">
-                  <button onClick={addToAppleWallet} className="flex-1 h-[48px] bg-white border border-[#E2E8F0] rounded-[16px] text-[#011F7B] font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-slate-50 shadow-sm">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button onClick={addToAppleWallet} className="flex-1 h-[48px] shrink-0 bg-white border border-[#E2E8F0] rounded-[16px] text-[#011F7B] font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-slate-50 shadow-sm">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M16.364 8.232c-.52-1.396-1.928-2.228-3.414-2.228-1.503 0-2.819.789-3.498 2.016-.363.655-.558 1.411-.558 2.193 0 1.258.494 2.457 1.341 3.325.867.887 2.051 1.365 3.3 1.365 1.096 0 2.164-.374 2.97-1.041.56-.464 1.246-.948 1.942-.948.337 0 .684.095.968.273l2.846 1.779A8.966 8.966 0 0112 21a9 9 0 119-9c0 1.272-.27 2.511-.79 3.658L16.364 8.232zM12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/>
                     </svg>
                     Apple Wallet
                   </button>
-                  <button onClick={addToGoogleWallet} className="flex-1 h-[48px] bg-white border border-[#E2E8F0] rounded-[16px] text-[#011F7B] font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-slate-50 shadow-sm">
+                  <button onClick={addToGoogleWallet} className="flex-1 h-[48px] shrink-0 bg-white border border-[#E2E8F0] rounded-[16px] text-[#011F7B] font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-slate-50 shadow-sm">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44-3.9 0-7.14-3.2-7.14-7.27s3.24-7.27 7.14-7.27c1.76 0 3.3.64 4.5 1.71l2.09-2.09C17.06 2.65 14.7 1.63 12.18 1.63 6.47 1.63 1.83 6.27 1.83 11.98s4.64 10.35 10.35 10.35c5.38 0 9.85-3.66 10.22-8.73h.01v-2.5h-1.06z"/>
                     </svg>
@@ -453,7 +454,7 @@ export default function QRCodeDisplay({
                 </div>
               </div>
 
-              <div className="w-full mt-6 bg-[#FFF9E8] border border-[rgba(255,186,9,0.28)] rounded-[18px] py-3 px-4 flex items-center justify-center">
+              <div className="w-full mt-6 bg-[#FFF9E8] border border-[rgba(255,186,9,0.28)] rounded-[18px] py-3 px-4 flex items-center justify-center shrink-0">
                 <p className="text-[12px] font-medium text-[#011F7B]">
                   Show this pass at the event entry.
                 </p>
