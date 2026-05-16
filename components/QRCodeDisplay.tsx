@@ -361,7 +361,7 @@ export default function QRCodeDisplay({
           <div className="flex items-center justify-between relative z-10 mb-2">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-[#FFBA09] shadow-[0_0_10px_#FFBA09] animate-pulse" />
-              <span className="text-[9px] font-black tracking-[0.2em] text-white/90 uppercase">Official Pass</span>
+              <span className="text-[9px] font-black tracking-[0.2em] text-white/90 uppercase">Event Pass</span>
             </div>
             
             <button 
@@ -458,7 +458,7 @@ export default function QRCodeDisplay({
 
             <div className="bg-[#FFF9E8] rounded-2xl py-3 px-4 flex flex-col items-center justify-center border border-[rgba(255,186,9,0.1)]">
               <p className="text-[9px] font-black text-[#011F7B] text-center uppercase tracking-[0.15em] opacity-80">
-                Official Attendance QR
+                Event Attendance QR
               </p>
               <span className="text-[7.5px] text-[#011F7B]/40 font-bold mt-1 tracking-tight break-all text-center">
                 ID: {registrationId}
