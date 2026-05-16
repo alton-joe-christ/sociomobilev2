@@ -340,18 +340,12 @@ export default function QRCodeDisplay({
           animation: 'modalEnter 180ms ease-out forwards'
         }}
       >
-        <div className="relative h-[170px] shrink-0 rounded-t-[32px] rounded-b-[28px] overflow-hidden flex flex-col p-5 bg-gradient-to-br from-[#011F7B] to-[#1E3FAB] shadow-sm">
+        <div className="relative h-[140px] shrink-0 rounded-t-[32px] rounded-b-[28px] overflow-hidden flex flex-col p-5 bg-gradient-to-br from-[#011F7B] to-[#1E3FAB] shadow-sm">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.4)_0,transparent_100%)] pointer-events-none" />
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[#FFBA09] rounded-b-full shadow-[0_2px_8px_rgba(255,186,9,0.5)]" />
 
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                   <path d="M4 7V17C4 19.2091 5.79086 21 8 21H16C18.2091 21 20 19.2091 20 17V7C20 4.79086 18.2091 3 16 3H8C5.79086 3 4 4.79086 4 7Z" stroke="#FFBA09" strokeWidth="2"/>
-                   <circle cx="12" cy="12" r="2" fill="#FFBA09"/>
-                </svg>
-              </div>
               <span className="text-[11px] font-bold tracking-wider text-white/90 uppercase">Event Pass</span>
             </div>
             
@@ -367,14 +361,6 @@ export default function QRCodeDisplay({
           <div className="mt-auto relative z-10 flex flex-col items-start">
             <h3 className="text-[22px] font-bold text-white tracking-tight drop-shadow-md leading-tight mb-1 truncate w-full">{eventTitle}</h3>
             <p className="text-[13px] text-[rgba(255,255,255,0.82)] font-medium truncate w-full">{participantName}</p>
-            <div className="mt-3">
-              <span className="inline-flex items-center gap-1.5 bg-[#FFBA09] text-[#011F7B] px-3.5 py-1.5 rounded-full text-[11px] font-extrabold tracking-wide uppercase shadow-sm">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                   <path d="M12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27Z"/>
-                </svg>
-                Registered
-              </span>
-            </div>
           </div>
         </div>
 
