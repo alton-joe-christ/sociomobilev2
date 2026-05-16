@@ -921,6 +921,7 @@ export default function ScannerClient() {
             <video
               ref={videoRef}
               className={`w-full h-full object-cover${isNative ? " opacity-0" : ""}`}
+              style={{ filter: isNative ? "none" : "brightness(1.15) contrast(1.1) saturate(1.05)" }}
               muted
               playsInline
               autoPlay

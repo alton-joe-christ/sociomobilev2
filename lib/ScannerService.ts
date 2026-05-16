@@ -15,6 +15,7 @@ export interface IScanner {
   resume(): void;
   checkPermission(): Promise<PermissionStatus>;
   requestPermission(): Promise<PermissionStatus>;
+  setTorch(enabled: boolean): Promise<void>;
 }
 
 /**
@@ -91,13 +92,7 @@ class WebScanner implements IScanner {
           preferredCamera: 'environment',
           highlightScanRegion: false,
           highlightCodeOutline: false,
-          // 22 fps balances acquisition latency against battery on mid-range mobile
-          // browsers — empirically the elbow where missed-QR rate flattens. Native
-          // APK uses ML Kit event listener (no polling) — unaffected by this value.
-          maxScansPerSecond: 22,
-          // Slightly tighter centered crop than the symmetric 0.7 square: the QR is
-          // almost always near the viewport center, and a smaller region cuts decode
-          // cost per frame, which compensates for the higher fps.
+          maxScansPerSecond: 30, // upgraded from 22 for faster acquisition
           calculateScanRegion: (v) => {
             const smallestDimension = Math.min(v.videoWidth, v.videoHeight);
             const scanRegionSize = Math.round(smallestDimension * 0.62);
@@ -112,6 +107,42 @@ class WebScanner implements IScanner {
       );
 
       await this.scanner.start();
+
+      // Post-start stream optimization for WebScanner
+      try {
+        const stream = videoElement.srcObject as MediaStream;
+        const track = stream?.getVideoTracks()[0];
+        if (track) {
+          const capabilities = track.getCapabilities?.() || {};
+          const currentConstraints = track.getConstraints();
+          const advanced: any[] = [];
+
+          // 1. Autofocus Optimization
+          const focusModes = (capabilities as any).focusMode || [];
+          if (focusModes.includes('continuous')) {
+             advanced.push({ focusMode: 'continuous' });
+          } else if (focusModes.includes('continuous-video')) {
+             advanced.push({ focusMode: 'continuous-video' });
+          } else if (focusModes.includes('continuous-picture')) {
+             advanced.push({ focusMode: 'continuous-picture' });
+          }
+
+          // 2. Low Light / Exposure Optimization
+          const exposureModes = (capabilities as any).exposureMode || [];
+          if (exposureModes.includes('continuous')) {
+             advanced.push({ exposureMode: 'continuous' });
+          }
+
+          if (advanced.length > 0) {
+            await track.applyConstraints({
+              ...currentConstraints,
+              advanced
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[WebScanner] Failed to apply advanced track constraints', err);
+      }
     });
   }
 
@@ -129,6 +160,19 @@ class WebScanner implements IScanner {
 
   resume(): void {
     this.isPaused = false;
+  }
+
+  async setTorch(enabled: boolean): Promise<void> {
+    if (!this.scanner) return;
+    try {
+      if (enabled) {
+        await this.scanner.turnFlashOn();
+      } else {
+        await this.scanner.turnFlashOff();
+      }
+    } catch (err) {
+      console.warn('[WebScanner] Torch not supported', err);
+    }
   }
 }
 
@@ -229,6 +273,22 @@ class CapacitorScanner implements IScanner {
 
   resume(): void {
     this.isPaused = false;
+  }
+
+  async setTorch(enabled: boolean): Promise<void> {
+    try {
+      const { BarcodeScanner } = await getMlKitLib();
+      const { available } = await BarcodeScanner.isTorchAvailable();
+      if (!available) return;
+
+      if (enabled) {
+        await BarcodeScanner.enableTorch();
+      } else {
+        await BarcodeScanner.disableTorch();
+      }
+    } catch (err) {
+      console.warn('[CapacitorScanner] Torch not supported', err);
+    }
   }
 }
 

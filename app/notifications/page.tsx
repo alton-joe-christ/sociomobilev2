@@ -3,56 +3,36 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNotifications, type Notification } from "@/context/NotificationContext";
 import { useRouter } from "next/navigation";
-import { BellIcon, CalendarIcon, MegaphoneIcon, InfoIcon, ArrowLeftIcon, XIcon, CheckIcon, TrashIcon, RefreshCwIcon } from "@/components/icons";
+import { BellIcon, CalendarIcon, InfoIcon, ArrowLeftIcon, XIcon, CheckIcon, TrashIcon, RefreshCwIcon, ChevronRightIcon, AlertCircleIcon } from "@/components/icons";
 import { timeAgo } from "@/lib/dateUtils";
-
-function getStatusColor(type: string) {
-  if (type === "event_update" || type === "event_reminder") return "#2563EB"; // Info
-  if (type === "broadcast") return "#F59E0B"; // Warning
-  if (type === "error") return "#EF4444"; // Error
-  if (type === "success") return "#10B981"; // Success
-  return "#011F7B"; // System
-}
+import { motion, AnimatePresence } from "framer-motion";
 
 function typeStyle(type: string) {
-  const color = getStatusColor(type);
-  switch (type) {
-    case "event_update":
-    case "event_reminder":
-      return { 
-        icon: <CalendarIcon size={14} color={color} />, 
-        colorStr: color,
-        bg: "bg-blue-50/50",
-        label: "EVENT"
-      };
-    case "broadcast":
-      return { 
-        icon: <MegaphoneIcon size={14} color={color} />, 
-        colorStr: color,
-        bg: "bg-amber-50/50",
-        label: "BROADCAST"
-      };
-    case "success":
-      return { 
-        icon: <CheckIcon size={14} color={color} />, 
-        colorStr: color,
-        bg: "bg-emerald-50/50",
-        label: "SUCCESS"
-      };
-    case "error":
-      return { 
-        icon: <XIcon size={14} color={color} />, 
-        colorStr: color,
-        bg: "bg-red-50/50",
-        label: "ERROR"
-      };
-    default:
-      return { 
-        icon: <InfoIcon size={14} color={color} />, 
-        colorStr: color,
-        bg: "bg-slate-50",
-        label: "SYSTEM"
-      };
+  if (type === "success" || type === "event_reminder") {
+    return { 
+      icon: <CheckIcon size={20} color="#10B981" />, 
+      bg: "bg-[#ECFDF5]", 
+      label: "SYSTEM"
+    };
+  } else if (type === "error") {
+    return { 
+      icon: <XIcon size={20} color="#EF4444" />, 
+      bg: "bg-[#FEF2F2]", 
+      label: "SYSTEM"
+    };
+  } else if (type === "broadcast" || type === "warning") {
+    return { 
+      icon: <AlertCircleIcon size={20} color="#F59E0B" />, 
+      bg: "bg-[#FFFBEB]", 
+      label: "SYSTEM"
+    };
+  } else {
+    // Info / default
+    return { 
+      icon: <InfoIcon size={20} color="#2563EB" />, 
+      bg: "bg-[#EFF6FF]", 
+      label: "SYSTEM"
+    };
   }
 }
 
@@ -67,89 +47,101 @@ function Card({
   onClear: () => void;
   onMarkRead: () => void;
 }) {
-  const { icon, colorStr, label } = typeStyle(n.type);
+  const { icon, bg, label } = typeStyle(n.type);
   
   return (
-    <div
-      className={`group relative overflow-hidden transition-all active:scale-[0.98] ${
-        !n.read 
-          ? "-translate-y-0.5 shadow-[0_10px_30px_rgba(1,31,123,0.06)] ring-1 ring-[#011F7B]/10" 
-          : "opacity-95 shadow-[0_4px_16px_rgba(0,0,0,0.02)]"
-      }`}
-      style={{
-        background: "rgba(255,255,255,0.92)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid rgba(226,232,240,0.9)",
-        borderRadius: "24px",
-        padding: "20px",
-        ...( !n.read ? { borderLeft: "4px solid #011F7B" } : { borderLeft: "1px solid rgba(226,232,240,0.9)" } )
-      }}
-    >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      drag="x"
+      dragConstraints={{ left: -80, right: 0 }}
+      dragElastic={0.1}
+      onDragEnd={(e, info) => {
+        if (info.offset.x < -40) {
           onClear();
+        }
+      }}
+      className={`relative mb-4 group`}
+    >
+      <div
+        className={`relative overflow-hidden transition-all active:scale-[0.98] ${
+          !n.read 
+            ? "shadow-[0_8px_30px_rgba(1,31,123,0.08)]" 
+            : "opacity-90 shadow-[0_4px_16px_rgba(0,0,0,0.03)]"
+        }`}
+        style={{
+          background: "rgba(255,255,255,1)",
+          border: "1px solid rgba(226,232,240,0.8)",
+          borderRadius: "16px",
+          padding: "16px",
+          ...( !n.read ? { borderLeft: "4px solid #011F7B" } : { borderLeft: "4px solid transparent" } )
         }}
-        className="absolute top-4 right-4 p-2 rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors z-10"
-        title="Dismiss"
+        onClick={onTap}
       >
-        <XIcon size={16} />
-      </button>
-
-      {!n.read && (
-        <div className="absolute top-6 right-14 w-2 h-2 rounded-full bg-[#011F7B] shadow-[0_0_8px_rgba(1,31,123,0.5)]" />
-      )}
-
-      <div onClick={onTap} className="w-full text-left cursor-pointer">
-        <div className="flex gap-4">
-          <div className="flex-1 min-w-0 pr-8">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: colorStr }}>
-                {label}
-              </span>
-              <span className="text-[10px] text-slate-300">•</span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                {timeAgo(n.createdAt)}
-              </span>
+        <div className="w-full text-left cursor-pointer flex gap-3">
+          {/* Left Icon */}
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${bg}`}>
+            {icon}
+          </div>
+          
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "#011F7B" }}>
+                  {label}
+                </span>
+                <span className="text-[11px] text-slate-300">•</span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {timeAgo(n.createdAt)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[#011F7B]/40">
+                {!n.read && <div className="w-2 h-2 rounded-full bg-[#011F7B]" />}
+                <ChevronRightIcon size={16} />
+              </div>
             </div>
             
-            <p className="text-[16px] font-bold leading-snug text-[#0F172A] tracking-tight">
+            <h3 className="text-[16px] font-bold text-[#0F172A] mb-1 leading-tight">
               {n.title}
-            </p>
+            </h3>
             
-            <p className="text-[13px] text-[#64748B] mt-1.5 leading-relaxed font-medium">
+            <p className="text-[14px] text-[#64748B] leading-snug font-medium mb-3">
               {n.message}
             </p>
 
-            {n.eventTitle && (
-              <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#F8FAFC] border border-[#E2E8F0]">
-                <CalendarIcon size={12} className="text-[#011F7B]" />
-                <span className="text-[11px] font-bold text-[#0F172A] truncate tracking-wide">
-                  {n.eventTitle}
-                </span>
+            {(n.eventTitle || !n.read) && (
+              <div className="flex items-center justify-between mt-3">
+                {n.eventTitle ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F1F5F9] border border-[#E2E8F0]">
+                    <CalendarIcon size={14} className="text-[#64748B]" />
+                    <span className="text-[12px] font-semibold text-[#475569] truncate">
+                      {n.eventTitle}
+                    </span>
+                  </div>
+                ) : <div />}
+
+                {!n.read && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkRead();
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-50 text-[#011F7B] hover:bg-blue-100 transition-colors ml-auto"
+                  >
+                    <CheckIcon size={14} />
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Mark Read</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {!n.read && (
-        <div className="pt-4 mt-2 border-t border-slate-100/50 flex items-center justify-end">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMarkRead();
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-50 text-[#011F7B] hover:bg-blue-50 transition-colors shadow-sm border border-slate-200/60"
-            title="Mark as read"
-          >
-            <CheckIcon size={14} />
-            <span className="text-[11px] font-black uppercase tracking-wider">Mark Read</span>
-          </button>
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -213,119 +205,107 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{
-      background: "linear-gradient(180deg, #F4F7FF 0%, #EEF3FF 40%, #F8FAFC 100%)"
-    }}>
+    <div className="min-h-screen relative overflow-hidden bg-[#F8FAFC]">
       {/* Background operational layers */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Soft navy radial glow */}
-        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[40%] rounded-full opacity-10 blur-[80px]" style={{ background: "radial-gradient(circle, #011F7B 0%, transparent 70%)" }} />
-        <div className="absolute bottom-[20%] left-[-20%] w-[70%] h-[50%] rounded-full opacity-[0.07] blur-[100px]" style={{ background: "radial-gradient(circle, #1E3FAB 0%, transparent 70%)" }} />
         {/* Subtle blueprint grid */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
+        <div className="absolute inset-0 opacity-[0.04]" style={{
           backgroundImage: "linear-gradient(#011F7B 1px, transparent 1px), linear-gradient(90deg, #011F7B 1px, transparent 1px)",
           backgroundSize: "20px 20px"
         }} />
-        {/* Light noise texture */}
-        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "url('/noise.png')", backgroundRepeat: "repeat" }} />
       </div>
 
       {/* Premium Hero Header */}
-      <div className="relative z-20 w-full overflow-hidden" style={{
-        height: "220px",
-        background: "linear-gradient(135deg, #011F7B 0%, #1E3FAB 100%)",
-        borderBottomLeftRadius: "32px",
-        borderBottomRightRadius: "32px",
+      <div className="relative z-20 w-full overflow-visible" style={{
+        background: "linear-gradient(135deg, #011F7B 0%, #0c2b8c 50%, #153c9b 100%)",
+        borderBottomLeftRadius: "36px",
+        borderBottomRightRadius: "36px",
+        paddingBottom: "36px",
         boxShadow: "0 10px 40px rgba(1,31,123,0.15)"
       }}>
-        {/* Header background accents */}
-        <div className="absolute inset-0 opacity-[0.05]" style={{
-          backgroundImage: "linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)",
-          backgroundSize: "24px 24px"
+        {/* Background stars / dots */}
+        <div className="absolute inset-0 opacity-[0.4]" style={{
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px)",
+          backgroundSize: "30px 30px"
         }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-[radial-gradient(circle,rgba(255,255,255,0.1)_0%,transparent_60%)]" />
 
-        <div className="absolute inset-0 pt-[calc(var(--safe-top)+16px)] px-5 flex flex-col justify-between pb-8">
+        <div className="absolute inset-0 pt-[calc(var(--safe-top)+16px)] px-5 flex flex-col justify-between pb-4">
           {/* Top Row */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between relative z-10">
             <button 
               onClick={() => router.back()} 
-              className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center active:scale-95 transition-transform backdrop-blur-md text-white"
+              className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center active:scale-95 transition-transform backdrop-blur-md text-white"
             >
               <ArrowLeftIcon size={20} />
             </button>
             
-            <div className="text-[18px] font-black tracking-widest text-white">
+            <div className="text-[18px] font-black tracking-widest text-white absolute left-1/2 -translate-x-1/2">
               SOCIO
             </div>
 
-            <div className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-md text-white relative">
-              <BellIcon size={20} />
+            <div className="w-10 h-10 flex items-center justify-center text-white relative">
+              <BellIcon size={22} />
               {unreadCount > 0 && (
-                <div className="absolute top-3 right-3 w-2 h-2 bg-[#FFBA09] rounded-full shadow-[0_0_8px_#FFBA09]" />
+                <div className="absolute -top-1 -right-1 w-[18px] h-[18px] bg-[#FFBA09] text-black font-bold text-[10px] flex items-center justify-center rounded-full">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </div>
               )}
             </div>
           </div>
 
           {/* Second Row */}
-          <div className="flex items-end justify-between mt-auto">
-            <div>
-              <h1 className="text-[32px] font-black tracking-tight text-white leading-none">
-                Notifications
-              </h1>
-              <div className="flex items-center gap-3 mt-2.5">
-                <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full border border-white/10">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FFBA09] animate-pulse" />
-                  <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-                    {unreadCount} unread
-                  </span>
-                </div>
-                <span className="text-[11px] font-medium text-blue-200/80 uppercase tracking-wider">
-                  Last synced just now
-                </span>
-              </div>
+          <div className="mt-6 flex flex-col gap-1.5 relative z-10">
+            <h1 className="text-[34px] font-black tracking-tight text-white leading-none">
+              Notifications
+            </h1>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FFBA09]" />
+              <span className="text-[13px] font-medium text-white">
+                {unreadCount} unread updates
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5 opacity-80">
+              <RefreshCwIcon size={12} className="text-white" />
+              <span className="text-[12px] font-medium text-white">
+                Last synced just now
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Action Buttons Row */}
-      <div className="relative z-20 px-5 -mt-5 flex items-center justify-between gap-3">
-        {unreadCount > 0 ? (
-          <button
-            onClick={markAllRead}
-            className="flex-1 h-12 rounded-full bg-white border border-[#E2E8F0] shadow-[0_8px_20px_rgba(1,31,123,0.06)] flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <CheckIcon size={16} className="text-[#011F7B]" />
-            <span className="text-[12px] font-black uppercase tracking-wider text-[#011F7B]">Mark All Read</span>
-          </button>
-        ) : (
-          <div className="flex-1" />
-        )}
+      <div className="relative z-30 px-6 flex items-center justify-center gap-4 -mt-6">
+        <button
+          onClick={markAllRead}
+          className="flex-1 h-12 rounded-2xl bg-white shadow-[0_8px_20px_rgba(1,31,123,0.12)] flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        >
+          <CheckIcon size={16} className="text-[#011F7B]" />
+          <span className="text-[12px] font-bold uppercase tracking-wider text-[#011F7B]">MARK ALL AS READ</span>
+        </button>
 
         {notifications.length > 0 && (
           <button
             onClick={() => setShowClearModal(true)}
-            className="flex-none px-5 h-12 rounded-full bg-white/60 backdrop-blur-md border border-[#E2E8F0] shadow-[0_8px_20px_rgba(1,31,123,0.04)] flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-red-50/50"
+            className="flex-1 h-12 rounded-2xl bg-white shadow-[0_8px_20px_rgba(1,31,123,0.12)] flex items-center justify-center gap-2 active:scale-95 transition-transform"
           >
-            <TrashIcon size={16} className="text-red-500/70" />
-            <span className="text-[12px] font-black uppercase tracking-wider text-[#0F172A]">Clear All</span>
+            <TrashIcon size={16} className="text-[#EF4444]" />
+            <span className="text-[12px] font-bold uppercase tracking-wider text-[#EF4444]">CLEAR ALL</span>
           </button>
         )}
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 px-4 pt-6 pb-28">
+      <div className="relative z-10 px-4 pt-8 pb-28">
         {isLoading && notifications.length === 0 ? (
           <div className="space-y-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 w-full rounded-[24px] bg-white/50 backdrop-blur-sm border border-slate-200/50 animate-pulse" />
+              <div key={i} className="h-32 w-full rounded-[16px] bg-white border border-slate-200/50 animate-pulse" />
             ))}
           </div>
         ) : groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center px-8 relative">
-            <div className="w-24 h-24 rounded-[32px] bg-white/60 backdrop-blur-md shadow-[0_20px_40px_rgba(1,31,123,0.08)] border border-white flex items-center justify-center mb-8 relative">
-              <div className="absolute inset-0 bg-[#011F7B]/5 rounded-[32px] animate-ping" style={{ animationDuration: '3s' }} />
+            <div className="w-24 h-24 rounded-full bg-white shadow-[0_20px_40px_rgba(1,31,123,0.08)] flex items-center justify-center mb-8 relative">
               <BellIcon size={36} className="text-[#011F7B] opacity-80" />
             </div>
             <h2 className="text-[22px] font-black text-[#0F172A] tracking-tight">No new updates</h2>
@@ -341,25 +321,23 @@ export default function NotificationsPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {groups.map((group) => (
-              <div key={group.title} className="space-y-4">
-                <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-[#64748B] pl-2 flex items-center gap-2">
-                  <div className="w-1 h-1 rounded-full bg-[#64748B]/50" />
+              <div key={group.title} className="space-y-3">
+                <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-[#7088B6] pl-2 mb-2">
                   {group.title}
                 </h2>
-                <div className="space-y-3">
+                <AnimatePresence>
                   {group.items.map((n) => (
-                    <div key={n.id} style={{ animation: "slideUp 180ms ease-out backwards" }}>
-                      <Card
-                        n={n}
-                        onTap={() => handleTap(n)}
-                        onClear={() => handleClearOne(n)}
-                        onMarkRead={() => markRead(n.id)}
-                      />
-                    </div>
+                    <Card
+                      key={n.id}
+                      n={n}
+                      onTap={() => handleTap(n)}
+                      onClear={() => handleClearOne(n)}
+                      onMarkRead={() => markRead(n.id)}
+                    />
                   ))}
-                </div>
+                </AnimatePresence>
               </div>
             ))}
 
@@ -417,10 +395,6 @@ export default function NotificationsPage() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
         @keyframes modalEnter {
           from { opacity: 0; transform: scale(0.95) translateY(10px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
