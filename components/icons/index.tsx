@@ -599,3 +599,13 @@ export const UtensilsIcon = (props: IconProps) => (
     <path d="M18 15v7" />
   </IconBase>
 );
+
+export const FlashlightIcon = (props: IconProps) => (
+  <IconBase {...props}>
+    <path d="M18.66 10.5a2 2 0 1 1-3.66 0 2 2 0 0 1 3.66 0z" />
+    <path d="M15 13H9" />
+    <path d="M21 13h-2" />
+    <path d="M15 5H9a2 2 0 0 0-2 2v2h10V7a2 2 0 0 0-2-2z" />
+    <path d="M13 18c0 .6-.4 1-1 1s-1-.4-1-1v-4h2v4z" />
+  </IconBase>
+);

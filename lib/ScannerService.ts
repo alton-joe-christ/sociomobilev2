@@ -16,6 +16,7 @@ export interface IScanner {
   checkPermission(): Promise<PermissionStatus>;
   requestPermission(): Promise<PermissionStatus>;
   setTorch(enabled: boolean): Promise<void>;
+  isTorchAvailable(): Promise<boolean>;
 }
 
 /**
@@ -177,6 +178,15 @@ class WebScanner implements IScanner {
       console.warn('[WebScanner] Torch not supported', err);
     }
   }
+
+  async isTorchAvailable(): Promise<boolean> {
+    if (!this.scanner) return false;
+    try {
+      return await this.scanner.hasFlash();
+    } catch {
+      return false;
+    }
+  }
 }
 
 /**
@@ -291,6 +301,16 @@ class CapacitorScanner implements IScanner {
       }
     } catch (err) {
       console.warn('[CapacitorScanner] Torch not supported', err);
+    }
+  }
+
+  async isTorchAvailable(): Promise<boolean> {
+    try {
+      const { BarcodeScanner } = await getMlKitLib();
+      const { available } = await BarcodeScanner.isTorchAvailable();
+      return available;
+    } catch {
+      return false;
     }
   }
 }

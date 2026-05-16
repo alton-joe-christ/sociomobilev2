@@ -13,6 +13,7 @@ import {
   ArrowLeftIcon,
   QrCodeIcon,
   BellIcon,
+  FlashlightIcon,
 } from "@/components/icons";
 import { getActiveVolunteerEvents } from "@/lib/volunteerAccess";
 import { apiRequest } from "@/lib/apiClient";
@@ -233,6 +234,8 @@ export default function ScannerClient() {
   const [isViewingAll, setIsViewingAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const [torchAvailable, setTorchAvailable] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
 
   // Dexie live queries
   const syncQueue = useLiveQuery(
@@ -351,8 +354,13 @@ export default function ScannerClient() {
     const end = startPerfSpan("scanner.client.stop");
     try {
       if (scannerRef.current) {
+        if (torchEnabled) {
+          await scannerRef.current.setTorch(false).catch(() => {});
+          setTorchEnabled(false);
+        }
         await scannerRef.current.stop();
       }
+      setTorchAvailable(false);
       // barcode-scanner-active is a native-only class (CapacitorScanner sets it);
       // removing it on web is a safe no-op but we isolate it for clarity
       if (isNative) {
@@ -375,7 +383,23 @@ export default function ScannerClient() {
       setIsScanning(false);
       end({ status: "completed" });
     }
-  }, [isNative]);
+  }, [isNative, torchEnabled]);
+
+  const toggleTorch = useCallback(async () => {
+    if (!scannerRef.current || !torchAvailable) return;
+    try {
+      const newState = !torchEnabled;
+      await scannerRef.current.setTorch(newState);
+      setTorchEnabled(newState);
+      pushToast({
+        type: "success",
+        name: "Torch",
+        message: newState ? "Torch enabled" : "Torch disabled"
+      });
+    } catch (err) {
+      console.error("[Scanner] Torch toggle failed:", err);
+    }
+  }, [torchEnabled, torchAvailable, pushToast]);
 
   /* ── Core scan processor (backend-authoritative) ── */
   const processScan = useCallback(async (result: ScannerResult) => {
@@ -610,6 +634,8 @@ export default function ScannerClient() {
         // Stable ref-based dispatch — the scanner never sees a new function,
         // so library-internal teardown/setup is never triggered by React renders.
         await scannerRef.current.start(videoRef.current!, (r) => processScanRef.current(r));
+        const available = await scannerRef.current.isTorchAvailable();
+        setTorchAvailable(available);
       }, { isNative });
       setIsScanning(true);
       // Memory snapshot is dev/native diagnostic only — no-op in production web
@@ -995,9 +1021,27 @@ export default function ScannerClient() {
                 <div className="scan-corner scan-corner-br" />
                 <div className="scan-line" />
 
-                {/* Stop scanning button */}
+                {/* Torch Toggle Button - Right Side */}
+                {torchAvailable && (
+                  <button
+                    className={`absolute top-4 right-4 w-[44px] h-[44px] rounded-full flex items-center justify-center z-50 pointer-events-auto active:scale-90 transition-all shadow-lg backdrop-blur-[8px] border border-white/20 ${
+                      torchEnabled 
+                        ? "bg-[#FFBA09] text-[#011F7B] animate-pulse shadow-[0_0_15px_rgba(255,186,9,0.5)]" 
+                        : "bg-[#011F7B]/22 text-white"
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void toggleTorch();
+                    }}
+                    aria-label={torchEnabled ? "Disable torch" : "Enable torch"}
+                  >
+                    <FlashlightIcon size={20} strokeWidth={2.5} />
+                  </button>
+                )}
+
+                {/* Stop scanning button - Left Side for better accessibility when torch is present */}
                 <button
-                  className="absolute top-2 right-2 w-10 h-10 bg-black/40 backdrop-blur-md text-white rounded-full flex items-center justify-center z-50 pointer-events-auto active:scale-95 transition-transform"
+                  className="absolute top-4 left-4 w-10 h-10 bg-black/40 backdrop-blur-md text-white rounded-full flex items-center justify-center z-50 pointer-events-auto active:scale-95 transition-transform"
                   onClick={(e) => {
                     e.stopPropagation();
                     void stopScanner();
