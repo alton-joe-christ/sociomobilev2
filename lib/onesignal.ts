@@ -173,37 +173,25 @@ export async function initOneSignal(): Promise<void> {
     }
 
     // ── Safe Event Listeners ──────────────────────────────────
-    if (OneSignal?.Notifications) {
-      try {
-        OneSignal.Notifications.addEventListener(
-          "click",
-          (event: any) => {
-            console.log("[OneSignal] Notification clicked:", event?.notification?.title);
-          }
-        );
-        console.log("[OneSignal] Click listener attached");
-      } catch (clickErr) {
-        console.warn("[OneSignal] Click listener setup failed:", clickErr);
-      }
-    } else {
+    const activeOS = typeof window !== "undefined" ? (window as any).OneSignal : null;
+
+    if (!activeOS) return;
+
+    if (!activeOS.Notifications) {
       console.warn("[OneSignal] Notifications namespace missing");
+      return;
     }
 
-    if (OneSignal?.User?.PushSubscription) {
-      try {
-        OneSignal.User.PushSubscription.addEventListener(
-          "change",
-          (event: any) => {
-            const current = event?.current;
-            console.log("[OneSignal] Subscription changed → optedIn:", current?.optedIn, "| id:", current?.id);
-          }
-        );
-        console.log("[OneSignal] Subscription listener attached");
-      } catch (subErr) {
-        console.warn("[OneSignal] Subscription change listener failed:", subErr);
-      }
-    } else {
-      console.warn("[OneSignal] PushSubscription namespace missing");
+    try {
+      activeOS.Notifications.addEventListener(
+        "permissionChange",
+        (permission: boolean) => {
+          console.log("[OneSignal] Permission changed:", permission);
+        }
+      );
+      console.log("[OneSignal] Permission listener attached");
+    } catch (err) {
+      console.warn("[OneSignal] Listener setup failed:", err);
     }
   } catch (err: unknown) {
     // ── Transition: initializing → failed ─────────────────────
