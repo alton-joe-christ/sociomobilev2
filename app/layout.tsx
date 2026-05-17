@@ -74,6 +74,19 @@ export default async function RootLayout({
               (() => {
                 if (!('serviceWorker' in navigator)) return;
 
+                // Aggressively unregister any bad/corrupted service workers (like onesignalsdkworker.js)
+                (async () => {
+                  try {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of regs) {
+                      if (reg.active && (reg.active.scriptURL.includes('onesignalsdkworker') || reg.scope.includes('push'))) {
+                        console.log('[OneSignal Cleanup] Removing bad worker:', reg.active.scriptURL);
+                        await reg.unregister();
+                      }
+                    }
+                  } catch (e) {}
+                })();
+
                 // Disable SW in native Capacitor environment to avoid double-caching and hydration issues
                 if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web') {
                   return;
