@@ -135,12 +135,14 @@ export async function initOneSignal(): Promise<void> {
     const OneSignal = (await import("react-onesignal")).default;
 
     console.log("[OneSignal] Current origin:", window.location.origin);
-    console.log("[OneSignal] Worker path:", "/OneSignalSDKWorker.js");
-    console.log("[OneSignal] Updater path:", "/OneSignalSDKUpdaterWorker.js");
+    console.log("[OneSignal] Worker path:", "OneSignalSDKWorker.js");
+    console.log("[OneSignal] Updater path:", "OneSignalSDKUpdaterWorker.js");
 
     await OneSignal.init({
       appId,
       allowLocalhostAsSecureOrigin: true,
+      serviceWorkerPath: "OneSignalSDKWorker.js",
+      serviceWorkerUpdaterPath: "OneSignalSDKUpdaterWorker.js",
       notifyButton: { enable: false } as any,
     });
 
