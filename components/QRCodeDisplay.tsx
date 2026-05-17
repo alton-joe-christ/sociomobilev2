@@ -346,8 +346,8 @@ export default function QRCodeDisplay({
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center overscroll-none touch-none"
       style={{
-        paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
-        paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+        paddingTop: "calc(8px + env(safe-area-inset-top, 0px))",
+        paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
         paddingLeft: "12px",
         paddingRight: "12px",
       }}
@@ -371,92 +371,111 @@ export default function QRCodeDisplay({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 10 }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-[460px] bg-white rounded-[34px] shadow-[0_30px_80px_rgba(1,31,123,0.18)] flex flex-col overflow-hidden overscroll-contain"
+        className="relative w-full max-w-[420px] bg-white rounded-[28px] shadow-[0_30px_80px_rgba(1,31,123,0.18)] flex flex-col overflow-hidden overscroll-contain"
         style={{
-          maxHeight: "min(820px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px))",
+          maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px)",
         }}
       >
         {/* Header Section - Operational Navy Gradient with Texture */}
-        <div className="relative shrink-0 overflow-hidden px-6 pt-5 pb-[68px] bg-gradient-to-br from-[#011F7B] to-[#1E3FAB] rounded-b-[32px]">
+        <div className="relative shrink-0 overflow-hidden px-6 pt-4 pb-[50px] bg-gradient-to-br from-[#011F7B] to-[#1E3FAB] rounded-b-[28px]">
           {/* Subtle Blueprint Texture Overlay */}
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none" 
                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '20px 20px' }} />
           <div className="absolute inset-0 opacity-15 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.7)_0,transparent_100%)] pointer-events-none" />
           
           <div className="flex items-start justify-between relative z-10">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#FFBA09] shadow-[0_0_8px_#FFBA09]" />
-                <span className="text-[10px] font-black tracking-[0.25em] text-white/80 uppercase">Event Pass</span>
+                <span className="text-[9px] font-black tracking-[0.25em] text-white/80 uppercase">Event Pass</span>
               </div>
-              <h3 className="text-[clamp(1.6rem,5vw,2.2rem)] font-black text-white tracking-[-0.03em] leading-[0.96] max-w-[90%] line-clamp-2">
+              <h3 className="text-[clamp(1.3rem,4.5vw,1.75rem)] font-black text-white tracking-[-0.03em] leading-[1.05] line-clamp-2 pr-2">
                 {eventTitle}
               </h3>
-              <p className="text-[11px] text-white/50 font-bold tracking-tight mt-0.5">Your pass to an amazing experience</p>
+              <p className="text-[10px] text-white/50 font-bold tracking-tight mt-0.5">Your pass to an amazing experience</p>
             </div>
             
             <button 
               onClick={onClose} 
-              className="w-[42px] h-[42px] rounded-full bg-white/12 flex items-center justify-center border border-white/18 backdrop-blur-[8px] hover:bg-white/20 transition-all active:scale-90 shrink-0" 
+              className="w-[36px] h-[36px] rounded-full bg-white/12 flex items-center justify-center border border-white/18 backdrop-blur-[8px] hover:bg-white/20 transition-all active:scale-90 shrink-0" 
               aria-label="Close"
             >
-              <XIcon size={18} className="text-white" strokeWidth={2.5} />
+              <XIcon size={16} className="text-white" strokeWidth={2.5} />
             </button>
           </div>
         </div>
 
         {/* Content Section - Compact, no-scroll layout */}
-        <div className="pass-modal-content flex-1 flex flex-col items-center min-h-0 overflow-hidden pb-[calc(18px+env(safe-area-inset-bottom,0px))]">
+        <div className="pass-modal-content flex-1 flex flex-col items-center min-h-0 overflow-hidden pb-[calc(14px+env(safe-area-inset-bottom,0px))]">
           
           {/* Floating Info Card - Reduced Overlap for breathability */}
-          <div className="w-[calc(100%-40px)] flex items-stretch bg-white rounded-[22px] p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] -mt-9 relative z-20 border border-slate-50">
+          <div className="w-[calc(100%-32px)] flex items-stretch bg-white rounded-[20px] p-3 shadow-[0_10px_25px_rgba(15,23,42,0.06)] -mt-7 relative z-20 border border-slate-100">
             {/* Date Section */}
             <div className="flex-1 flex flex-col items-center text-center min-w-0">
-              <CalendarIcon size={13} className="text-[#FFBA09] mb-1" />
-              <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">Date</span>
-              <span className="text-[11px] text-[#0F172A] font-black leading-tight">{dateInfo.main}</span>
-              <span className="text-[8px] text-[#94A3B8] font-bold mt-0.5">{dateInfo.sub}</span>
+              <CalendarIcon size={12} className="text-[#FFBA09] mb-0.5" />
+              <span className="text-[7.5px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">Date</span>
+              <span className="text-[10.5px] text-[#0F172A] font-black leading-tight truncate w-full px-0.5">{dateInfo.main}</span>
+              <span className="text-[7.5px] text-[#94A3B8] font-bold mt-0.5">{dateInfo.sub}</span>
             </div>
 
             <div className="w-px bg-[#F1F5F9] mx-0.5" />
 
             {/* Time Section */}
             <div className="flex-1 flex flex-col items-center text-center min-w-0">
-              <ClockIcon size={13} className="text-[#FFBA09] mb-1" />
-              <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">Time</span>
-              <span className="text-[11px] text-[#0F172A] font-black leading-tight">{time || "12:00:00"}</span>
-              <span className="text-[8px] text-[#94A3B8] font-bold mt-0.5">IST</span>
+              <ClockIcon size={12} className="text-[#FFBA09] mb-0.5" />
+              <span className="text-[7.5px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">Time</span>
+              <span className="text-[10.5px] text-[#0F172A] font-black leading-tight truncate w-full px-0.5">{time || "12:00 PM"}</span>
+              <span className="text-[7.5px] text-[#94A3B8] font-bold mt-0.5">IST</span>
             </div>
 
             <div className="w-px bg-[#F1F5F9] mx-0.5" />
 
             {/* Venue Section */}
             <div className="flex-1 flex flex-col items-center text-center min-w-0">
-              <MapPinIcon size={13} className="text-[#FFBA09] mb-1" />
-              <span className="text-[8px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">Venue</span>
-              <span className="text-[11px] text-[#0F172A] font-black leading-tight truncate w-full px-1" title={venue}>{venue || "TBA"}</span>
+              <MapPinIcon size={12} className="text-[#FFBA09] mb-0.5" />
+              <span className="text-[7.5px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">Venue</span>
+              <span className="text-[10.5px] text-[#0F172A] font-black leading-tight truncate w-full px-1" title={venue}>{venue || "TBA"}</span>
+              <span className="text-[7.5px] text-[#94A3B8] font-bold mt-0.5">Location</span>
             </div>
           </div>
 
           <div className="w-full flex-1 px-5 pt-3 flex flex-col items-center min-h-0">
-            <div className="w-full flex-1 flex flex-col items-center justify-between min-h-0 gap-4">
+            <div className="w-full flex-1 flex flex-col items-center justify-between min-h-0 gap-3">
               {/* QR Container - Responsive and scan-safe */}
-              <div className="flex-1 w-full flex items-center justify-center min-h-0">
+              <div className="flex-1 w-full flex items-center justify-center min-h-0 py-1">
                 {loading ? (
-                  <div className="w-[min(210px,58vw)] h-[min(210px,58vw)] flex items-center justify-center bg-gray-50 rounded-[26px]">
-                    <Loader2Icon size={30} className="animate-spin text-[#011F7B] opacity-20" />
+                  <div 
+                    className="flex items-center justify-center bg-slate-50/50 rounded-[24px] border border-slate-100"
+                    style={{
+                      width: "min(210px, 58vw)",
+                      height: "min(210px, 58vw)",
+                    }}
+                  >
+                    <Loader2Icon size={26} className="animate-spin text-[#011F7B] opacity-35" />
                   </div>
                 ) : error ? (
-                  <div className="w-[min(210px,58vw)] h-[min(210px,58vw)] flex flex-col items-center justify-center p-4 text-center bg-red-50 rounded-[26px] border border-red-100">
-                    <AlertCircleIcon size={22} className="text-red-500 mb-2" />
-                    <p className="text-[12px] text-red-600 font-bold">{error}</p>
+                  <div 
+                    className="flex flex-col items-center justify-center p-4 text-center bg-red-50 rounded-[24px] border border-red-100"
+                    style={{
+                      width: "min(210px, 58vw)",
+                      height: "min(210px, 58vw)",
+                    }}
+                  >
+                    <AlertCircleIcon size={20} className="text-red-500 mb-1.5" />
+                    <p className="text-[11px] text-red-600 font-bold leading-tight">{error}</p>
                   </div>
                 ) : (
-                  <div className="p-4 bg-white rounded-[26px] shadow-[0_16px_38px_rgba(15,23,42,0.08),0_2px_8px_rgba(15,23,42,0.04)] border border-slate-100/80">
+                  <div 
+                    className="p-3.5 bg-white rounded-[24px] shadow-[0_12px_32px_rgba(15,23,42,0.06),0_2px_8px_rgba(15,23,42,0.02)] border border-slate-100/90 flex items-center justify-center"
+                    style={{
+                      width: "min(210px, 58vw)",
+                      height: "min(210px, 58vw)",
+                    }}
+                  >
                     <img
                       src={qrImage || ""}
                       alt="Secure QR code"
-                      className="w-[min(210px,58vw)] h-[min(210px,58vw)] object-contain"
+                      className="w-full h-full object-contain"
                       style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
@@ -464,29 +483,29 @@ export default function QRCodeDisplay({
               </div>
 
               {/* Actions */}
-              <div className="w-full flex flex-col gap-3">
+              <div className="w-full flex flex-col gap-2.5">
                 <button
                   onClick={downloadAsPDF}
                   disabled={pdfLoading || loading}
-                  className="w-full h-[58px] bg-[#FFBA09] text-[#011F7B] rounded-[20px] font-black text-[15px] shadow-[0_8px_20px_rgba(255,186,9,0.22)] flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
+                  className="w-full h-[58px] bg-[#FFBA09] text-[#011F7B] rounded-[18px] font-black text-[14.5px] shadow-[0_6px_18px_rgba(255,186,9,0.18)] flex items-center justify-center gap-2.5 active:scale-[0.98] transition-all disabled:opacity-50 select-none cursor-pointer"
                 >
                   {pdfLoading ? (
-                    <Loader2Icon size={20} className="animate-spin" />
+                    <Loader2Icon size={18} className="animate-spin" />
                   ) : (
                     <>
-                      <DownloadIcon size={22} strokeWidth={3} />
+                      <DownloadIcon size={20} strokeWidth={3} />
                       Download Pass (PDF)
                     </>
                   )}
                 </button>
 
-                <div className="rounded-[18px] border border-[rgba(226,232,240,0.8)] bg-[rgba(248,250,252,0.9)] p-[14px_16px] flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#E2E8F0] flex items-center justify-center shrink-0">
-                    <ShieldCheckIcon size={18} className="text-[#0F172A]" />
+                <div className="w-full rounded-[18px] border border-[rgba(226,232,240,0.8)] bg-[rgba(248,250,252,0.9)] p-[12px_14px] flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                    <ShieldCheckIcon size={16} className="text-emerald-600" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[12px] text-[#0F172A] font-bold leading-tight">Show this QR at entry</p>
-                    <p className="text-[11px] text-[#64748B] font-medium mt-0.5">You will be scanned for attendance</p>
+                    <p className="text-[10.5px] text-[#64748B] font-medium mt-0.5">You will be scanned for attendance</p>
                   </div>
                 </div>
               </div>
@@ -500,7 +519,7 @@ export default function QRCodeDisplay({
         .overscroll-none { overscroll-behavior: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @media (max-height: 620px) {
+        @media (max-height: 560px) {
           .pass-modal-content {
             overflow-y: auto;
           }
