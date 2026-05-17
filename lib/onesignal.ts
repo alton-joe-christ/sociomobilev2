@@ -76,14 +76,14 @@ export async function initOneSignal(): Promise<void> {
   try {
     const OneSignal = (await import("react-onesignal")).default;
 
-    console.log("[OneSignal] Worker path: ABSOLUTE URL OVERRIDE");
-    console.log("[OneSignal] Updater path: ABSOLUTE URL OVERRIDE");
+    console.log("[OneSignal] Worker path: /OneSignalSDKWorker.js");
+    console.log("[OneSignal] Updater path: /OneSignalSDKUpdaterWorker.js");
 
     await OneSignal.init({
       appId,
       allowLocalhostAsSecureOrigin: true,
-      serviceWorkerPath: window.location.origin + "/OneSignalSDKWorker.js",
-      serviceWorkerUpdaterPath: window.location.origin + "/OneSignalSDKUpdaterWorker.js",
+      serviceWorkerPath: "/OneSignalSDKWorker.js",
+      serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
       notifyButton: { enable: false } as any,
     });
 
