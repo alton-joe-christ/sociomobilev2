@@ -349,7 +349,7 @@ export default function QRCodeDisplay({
       >
         {/* Header Section */}
         <div
-          className="pass-header relative shrink-0 overflow-hidden bg-gradient-to-br from-[#011F7B] to-[#1E3FAB] px-6 pt-6 pb-9 rounded-t-[36px]"
+          className="pass-header relative z-10 shrink-0 overflow-hidden bg-gradient-to-br from-[#011F7B] to-[#1E3FAB] px-6 pt-6 pb-9 rounded-t-[36px]"
         >
           {/* Subtle Blueprint Dots */}
           <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
@@ -396,10 +396,10 @@ export default function QRCodeDisplay({
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="pass-modal-content no-scrollbar flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(20px+env(safe-area-inset-bottom,0px))]">
+        <div className="pass-modal-content no-scrollbar flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(20px+env(safe-area-inset-bottom,0px))] relative z-20 -mt-8">
           
           {/* Floating Info Card */}
-          <div className="relative z-20 -mt-6 mx-4 bg-white/98 rounded-[28px] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] border border-slate-100/50 backdrop-blur-sm">
+          <div className="mx-4 bg-white/98 rounded-[28px] p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] border border-slate-100/50 backdrop-blur-sm">
             <div className="grid grid-cols-3 divide-x divide-slate-100">
               {/* Date Column */}
               <div className="flex flex-col items-center text-center px-1 min-w-0">
@@ -480,18 +480,7 @@ export default function QRCodeDisplay({
             </button>
           </div>
 
-          {/* Attendance Info Card */}
-          <div className="px-4 mt-4">
-            <div className="flex items-center gap-3.5 rounded-[24px] border border-[#E2E8F0] bg-[#F8FAFC] p-[18px]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#011F7B] shadow-[0_6px_16px_rgba(15,23,42,0.05)]">
-                <ShieldCheckIcon size={18} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold leading-snug text-[#0F172A]">Show this QR at entry</p>
-                <p className="mt-0.5 text-[11px] font-medium leading-snug text-[#64748B]">You will be scanned for attendance</p>
-              </div>
-            </div>
-          </div>
+
 
         </div>
       </motion.div>
