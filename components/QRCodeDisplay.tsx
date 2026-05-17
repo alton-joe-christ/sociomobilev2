@@ -354,6 +354,15 @@ export default function QRCodeDisplay({
           {/* Subtle Blueprint Dots */}
           <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '16px 16px' }} />
+          
+          {/* Subtle SOCIO Operational Pattern */}
+          <div className="absolute inset-0 opacity-[0.02] pointer-events-none mask-fade-edges" 
+               style={{ 
+                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='20' viewBox='0 0 60 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4.7 15.5C3.3 15.5 2.1 15.2 1.2 14.5C0.3 13.8 -0.2 12.8 -0.2 11.6H3.4C3.4 12 3.5 12.3 3.8 12.5C4 12.7 4.3 12.8 4.7 12.8C5 12.8 5.3 12.7 5.5 12.5C5.7 12.3 5.8 12.1 5.8 11.8C5.8 11.4 5.6 11.1 5.3 10.9C5 10.7 4.4 10.5 3.6 10.3C2.8 10 2.1 9.8 1.6 9.5C1.1 9.2 0.7 8.9 0.4 8.4C0.1 7.9 -0.1 7.3 -0.1 6.5C-0.1 5.7 0.1 5 0.5 4.4C0.9 3.8 1.4 3.4 2.1 3.1C2.8 2.8 3.6 2.6 4.5 2.6C5.9 2.6 7.1 3 8 3.7C8.9 4.4 9.3 5.4 9.4 6.7H5.9C5.9 6.3 5.8 6 5.6 5.8C5.4 5.6 5.1 5.5 4.7 5.5C4.4 5.5 4.2 5.6 4.1 5.7C3.9 5.8 3.8 6.1 3.8 6.3C3.8 6.6 3.9 6.8 4.1 7C4.3 7.2 4.5 7.3 4.8 7.4C5.1 7.5 5.5 7.6 6.1 7.8C6.9 8.1 7.5 8.4 8.1 8.6C8.6 8.9 9.1 9.3 9.4 9.7C9.7 10.2 9.9 10.8 9.9 11.4C9.9 12.1 9.7 12.8 9.4 13.4C9 13.9 8.5 14.4 7.8 14.7C7.1 15.2 6.2 15.5 4.7 15.5Z' fill='white'/%3E%3C/svg%3E")`,
+                 backgroundSize: '80px 40px',
+                 backgroundRepeat: 'repeat'
+               }} />
+
           {/* Subtle Glow / Light Beam */}
           <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28)_0%,transparent_55%)] pointer-events-none" />
           <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12)_0%,transparent_72%)] pointer-events-none" />
@@ -361,7 +370,11 @@ export default function QRCodeDisplay({
           <div className="relative z-10 pr-14">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#FFBA09] shadow-[0_0_8px_rgba(255,186,9,0.9)]" />
-              <span className="text-[13px] font-semibold uppercase tracking-[0.2em] text-white/90">EVENT PASS</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold tracking-[0.1em] text-white/50">SOCIO</span>
+                <span className="text-white/30 text-[10px]">•</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90">EVENT PASS</span>
+              </div>
             </div>
 
             <h3 className="pass-title mt-[18px] max-w-full text-[clamp(20px,5.5vw,28px)] font-[800] tracking-[-0.04em] text-white leading-[0.95] line-clamp-2">
@@ -428,11 +441,21 @@ export default function QRCodeDisplay({
                 <p className="text-[12px] font-semibold text-red-600 leading-snug">{error}</p>
               </div>
             ) : (
-              <div className="flex aspect-square w-full max-w-[280px] min-w-[220px] items-center justify-center rounded-[32px] border border-slate-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+              <div className="relative flex aspect-square w-full max-w-[280px] min-w-[220px] items-center justify-center rounded-[32px] border border-slate-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] overflow-hidden">
+                {/* Embossed Detail */}
+                <div className="absolute top-4 inset-x-0 flex justify-center opacity-[0.12] pointer-events-none">
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#011F7B]" style={{ textShadow: '0.5px 0.5px 0px rgba(255,255,255,0.8), -0.5px -0.5px 0px rgba(0,0,0,0.1)' }}>SOCIO</span>
+                </div>
+
+                {/* QR Watermark behind QR */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] grayscale pointer-events-none blur-[0.5px]">
+                  <div dangerouslySetInnerHTML={{ __html: SOCIO_SVG }} className="w-[70%] h-auto" />
+                </div>
+
                 <img
                   src={qrImage || ""}
                   alt="Secure QR code"
-                  className="h-full w-full object-contain"
+                  className="relative z-10 h-full w-full object-contain"
                   style={{ imageRendering: "pixelated" }}
                 />
               </div>
