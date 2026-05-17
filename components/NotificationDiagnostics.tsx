@@ -63,7 +63,7 @@ export default function NotificationDiagnostics() {
           optedIn = String(OS.User?.pushSubscription?.optedIn ?? "unknown");
         }
       } else {
-        const OS = (await import("react-onesignal")).default as any;
+        const OS = typeof window !== "undefined" ? (window as any).OneSignal : null;
         if (OS) {
           osState = "Initialized (Web)";
           permission = Notification.permission;

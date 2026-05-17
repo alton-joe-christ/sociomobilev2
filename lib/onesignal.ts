@@ -121,27 +121,15 @@ export async function initOneSignal(): Promise<void> {
   console.log("[OneSignal] Initializing...");
 
   try {
-    if (typeof window !== "undefined") {
-      const hostPath = window.location.host;
-      (window as any).OneSignal = (window as any).OneSignal || [];
-      (window as any).OneSignal.SERVICE_WORKER_PATH = hostPath + '/push/OneSignalSDKWorker.js';
-      (window as any).OneSignal.SERVICE_WORKER_UPDATER_PATH = hostPath + '/push/OneSignalSDKUpdaterWorker.js';
-      (window as any).OneSignal.SERVICE_WORKER_PARAM = { scope: '/push/' };
-    }
-
     const OneSignal = (await import("react-onesignal")).default;
-
-    const hostPath = typeof window !== "undefined" ? window.location.host : "";
-    console.log("[OneSignal] Current origin:", typeof window !== "undefined" ? window.location.origin : "");
-    console.log("[OneSignal] Worker path:", hostPath + "/push/OneSignalSDKWorker.js");
-    console.log("[OneSignal] Updater path:", hostPath + "/push/OneSignalSDKUpdaterWorker.js");
 
     await OneSignal.init({
       appId,
-      allowLocalhostAsSecureOrigin: true,
-      serviceWorkerPath: hostPath + "/push/OneSignalSDKWorker.js",
-      serviceWorkerUpdaterPath: hostPath + "/push/OneSignalSDKUpdaterWorker.js",
-      notifyButton: { enable: false } as any,
+      serviceWorkerPath: "/push/OneSignalSDKWorker.js",
+      serviceWorkerUpdaterPath: "/push/OneSignalSDKUpdaterWorker.js",
+      notifyButton: {
+        enable: false,
+      },
     });
 
     // ── Transition: initializing → initialized ─────────────────
@@ -149,12 +137,16 @@ export async function initOneSignal(): Promise<void> {
     console.log("[OneSignal] Initialized successfully");
 
     // ── Delivery pipeline diagnostics ─────────────────────────
-    // token = raw FCM/WebPush token — null means NOT fully subscribed
     try {
+      if (!OneSignal?.Notifications) {
+        console.warn("[OneSignal] Notifications namespace unavailable");
+        return;
+      }
+      
       const permission = OneSignal.Notifications.permission;
-      const optedIn    = OneSignal.User.PushSubscription.optedIn;
-      const subId      = OneSignal.User.PushSubscription.id;
-      const token      = (OneSignal.User.PushSubscription as any).token;
+      const optedIn    = OneSignal.User?.PushSubscription?.optedIn;
+      const subId      = OneSignal.User?.PushSubscription?.id;
+      const token      = OneSignal.User?.PushSubscription?.token;
 
       console.log("[OneSignal] Permission:", permission);
       console.log("[OneSignal] Subscribed (optedIn):", optedIn);
@@ -162,37 +154,34 @@ export async function initOneSignal(): Promise<void> {
       console.log("[OneSignal] Push token:      ", token  || "⚠ null — device is NOT fully subscribed");
 
       // If permission is granted but device is not opted in, force opt-in.
-      // This handles the edge case where the SDK initialised but never
-      // called optIn() — common after a storage clear or first install.
       if (permission === true && !optedIn) {
         console.log("[OneSignal] Permission granted but not opted in — forcing optIn()");
-        await (OneSignal.User.PushSubscription as any).optIn?.();
+        await OneSignal.User?.PushSubscription?.optIn?.();
       }
     } catch (diagErr) {
       console.warn("[OneSignal] Subscription diagnostics failed:", diagErr);
     }
 
     // ── Safe Event Listeners ──────────────────────────────────
-    const activeOS = typeof window !== "undefined" ? (window as any).OneSignal : null;
-
-    if (!activeOS) return;
-
-    if (!activeOS.Notifications) {
-      console.warn("[OneSignal] Notifications namespace missing");
+    if (!OneSignal?.Notifications) {
+      console.warn("[OneSignal] Notifications namespace unavailable");
       return;
     }
 
-    try {
-      activeOS.Notifications.addEventListener(
-        "permissionChange",
-        (permission: boolean) => {
-          console.log("[OneSignal] Permission changed:", permission);
-        }
-      );
-      console.log("[OneSignal] Permission listener attached");
-    } catch (err) {
-      console.warn("[OneSignal] Listener setup failed:", err);
-    }
+    OneSignal.Notifications.addEventListener(
+      "click",
+      (event: any) => {
+        console.log("Notification clicked:", event);
+      }
+    );
+
+    OneSignal.Notifications.addEventListener(
+      "permissionChange",
+      (permission: boolean) => {
+        console.log("[OneSignal] Permission changed:", permission);
+      }
+    );
+    console.log("[OneSignal] Permission listener attached");
   } catch (err: unknown) {
     // ── Transition: initializing → failed ─────────────────────
     state = "failed";

@@ -205,9 +205,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       } else {
         // Web/PWA: use the global OneSignal object exposed by react-onesignal
         const OS = (await import("react-onesignal")).default;
+        if (!OS?.Notifications) {
+          console.warn("[OneSignal] Web SDK not fully initialized");
+          return;
+        }
         await OS.Notifications.requestPermission();
         granted =
-          (OS.Notifications as any).permission === true ||
+          OS.Notifications.permission === true ||
           Notification.permission === "granted";
         if (granted) console.log("[OneSignal] Permission granted");
       }
