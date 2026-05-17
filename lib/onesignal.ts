@@ -129,7 +129,7 @@ export async function initOneSignal(): Promise<void> {
       serviceWorkerUpdaterPath: "/push/OneSignalSDKUpdaterWorker.js",
       notifyButton: {
         enable: false,
-      },
+      } as any,
     });
 
     // ── Transition: initializing → initialized ─────────────────
