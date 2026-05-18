@@ -68,74 +68,7 @@ export default async function RootLayout({
         <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/favicon.svg" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (() => {
-                if (!('serviceWorker' in navigator)) return;
 
-                // Aggressively unregister any bad/corrupted service workers (like onesignalsdkworker.js)
-                (async () => {
-                  try {
-                    const regs = await navigator.serviceWorker.getRegistrations();
-                    for (const reg of regs) {
-                      if (reg.active && (reg.active.scriptURL.includes('onesignalsdkworker') || reg.scope.includes('push'))) {
-                        console.log('[OneSignal Cleanup] Removing bad worker:', reg.active.scriptURL);
-                        await reg.unregister();
-                      }
-                    }
-                  } catch (e) {}
-                })();
-
-                // Disable SW in native Capacitor environment to avoid double-caching and hydration issues
-                if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web') {
-                  return;
-                }
-
-                const disableSW = ${process.env.NODE_ENV !== "production"} || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-
-
-                const clearServiceWorkerState = async () => {
-                  try {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(registrations.map((registration) => registration.unregister()));
-                    const keys = await caches.keys();
-                    await Promise.all(keys.map((key) => caches.delete(key)));
-                  } catch {}
-                };
-
-                if (disableSW) {
-                  // Run cleanup as early as possible so hydration doesn't race with stale worker caches.
-                  if (navigator.serviceWorker.controller && !sessionStorage.getItem('socio-sw-cleared')) {
-                    sessionStorage.setItem('socio-sw-cleared', '1');
-                    clearServiceWorkerState().finally(() => location.reload());
-                    return;
-                  }
-
-                  clearServiceWorkerState().finally(() => {
-                    sessionStorage.removeItem('socio-sw-cleared');
-                  });
-                  return;
-                }
-
-                // window.addEventListener('load', async () => {
-                //   try {
-                //     const registration = await navigator.serviceWorker.register('/sw.js');
-                //     if (registration.waiting) {
-                //       registration.waiting.postMessage('SKIP_WAITING');
-                //     }
-                // 
-                //     navigator.serviceWorker.ready.then(() => {
-                //       if (navigator.serviceWorker.controller) {
-                //         navigator.serviceWorker.controller.postMessage('WARM_CACHE');
-                //       }
-                //     });
-                //   } catch {}
-                // });
-              })();
-            `,
-          }}
-        />
       </head>
       <body>
         <NetworkProvider>

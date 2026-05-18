@@ -132,7 +132,7 @@ export function initOneSignal(): void {
     try {
       const OneSignal = (await import("react-onesignal")).default;
 
-      // ── STEP 2: Add timeout protection ─────────────────────────
+      // ── STEP 2: Add soft timeout protection ────────────────────
       const initPromise = OneSignal.init({
         appId: appId,
         serviceWorkerPath: "/push/OneSignalSDKWorker.js",
@@ -145,115 +145,118 @@ export function initOneSignal(): void {
         } as any,
       });
 
-      const timeoutPromise = new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error("OneSignal init timeout (10s)")), 10000)
-      );
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => {
+          console.warn("[OneSignal] Init taking longer than expected...");
+          resolve("timeout");
+        }, 10000);
+      });
 
-      // Race initialization against the timeout limit
+      // Race initialization against the timeout limit without throwing
       await Promise.race([initPromise, timeoutPromise]);
 
-      // ── STEP 8: Move listener registration AFTER successful init 
-      console.log("[OneSignal] SDK initialized successfully. Attaching event listeners...");
+      // Continue waiting silently in background for full initialization
+      initPromise
+        .then(() => {
+          console.log("[OneSignal] SDK fully initialized");
 
-      // click listener
-      try {
-        if (OneSignal.Notifications) {
-          OneSignal.Notifications.addEventListener("click", (event: any) => {
-            console.log("[OneSignal] Notification clicked:", event);
-            const n = event.notification;
-            window.dispatchEvent(
-              new CustomEvent("socio:notificationClick", {
-                detail: {
-                  route: n.additionalData?.route,
-                  actionUrl: n.additionalData?.actionUrl,
-                  eventId: n.additionalData?.eventId,
-                  festId: n.additionalData?.festId
-                }
-              })
-            );
-          });
-          console.log("[OneSignal] 'click' listener attached successfully");
-        }
-      } catch (clickErr) {
-        console.warn("[OneSignal] Failed to attach click listener:", clickErr);
-      }
+          // click listener
+          try {
+            if (OneSignal.Notifications) {
+              OneSignal.Notifications.addEventListener("click", (event: any) => {
+                console.log("[OneSignal] Notification clicked:", event);
+                const n = event.notification;
+                window.dispatchEvent(
+                  new CustomEvent("socio:notificationClick", {
+                    detail: {
+                      route: n.additionalData?.route,
+                      actionUrl: n.additionalData?.actionUrl,
+                      eventId: n.additionalData?.eventId,
+                      festId: n.additionalData?.festId
+                    }
+                  })
+                );
+              });
+              console.log("[OneSignal] click listener attached successfully");
+            }
+          } catch (clickErr) {
+            console.warn("[OneSignal] Failed to attach click listener:", clickErr);
+          }
 
-      // foregroundWillDisplay listener
-      try {
-        if (OneSignal.Notifications) {
-          OneSignal.Notifications.addEventListener("foregroundWillDisplay", (event: any) => {
-            console.log("[OneSignal] Foreground notification arrived:", event);
-            
-            // Prevent default system popup
-            event.preventDefault();
-            
-            const n = event.notification;
-            
-            // Extract custom metadata payload
-            const payloadType = n.additionalData?.type || "event";
-            const payloadBadge = n.additionalData?.badge || "UPDATE";
-            const payloadCtaText = n.additionalData?.ctaText || "View Event";
-            const payloadCtaRoute = n.additionalData?.route || n.additionalData?.actionUrl || "/notifications";
-            
-            // Trigger in-app premium toast
-            window.dispatchEvent(
-              new CustomEvent("socio:foregroundNotification", {
-                detail: {
-                  title: n.title,
-                  body: n.body,
-                  type: payloadType,
-                  badge: payloadBadge,
-                  ctaText: payloadCtaText,
-                  ctaRoute: payloadCtaRoute,
-                  icon: n.icon
-                }
-              })
-            );
-          });
-          console.log("[OneSignal] 'foregroundWillDisplay' listener attached successfully");
-        }
-      } catch (fgErr) {
-        console.warn("[OneSignal] Failed to attach foreground listener:", fgErr);
-      }
+          // foregroundWillDisplay listener
+          try {
+            if (OneSignal.Notifications) {
+              OneSignal.Notifications.addEventListener("foregroundWillDisplay", (event: any) => {
+                console.log("[OneSignal] Foreground notification arrived:", event);
+                event.preventDefault();
+                const n = event.notification;
+                const payloadType = n.additionalData?.type || "event";
+                const payloadBadge = n.additionalData?.badge || "UPDATE";
+                const payloadCtaText = n.additionalData?.ctaText || "View Event";
+                const payloadCtaRoute = n.additionalData?.route || n.additionalData?.actionUrl || "/notifications";
+                window.dispatchEvent(
+                  new CustomEvent("socio:foregroundNotification", {
+                    detail: {
+                      title: n.title,
+                      body: n.body,
+                      type: payloadType,
+                      badge: payloadBadge,
+                      ctaText: payloadCtaText,
+                      ctaRoute: payloadCtaRoute,
+                      icon: n.icon
+                    }
+                  })
+                );
+              });
+              console.log("[OneSignal] foregroundWillDisplay listener attached successfully");
+            }
+          } catch (fgErr) {
+            console.warn("[OneSignal] Failed to attach foreground listener:", fgErr);
+          }
 
-      // permissionChange listener
-      try {
-        if (OneSignal.Notifications) {
-          OneSignal.Notifications.addEventListener("permissionChange", (permission: boolean) => {
-            console.log("[OneSignal] Permission changed:", permission);
-          });
-          console.log("[OneSignal] 'permissionChange' listener attached successfully");
-        }
-      } catch (permErr) {
-        console.warn("[OneSignal] Failed to attach permission listener:", permErr);
-      }
+          // permissionChange listener
+          try {
+            if (OneSignal.Notifications) {
+              OneSignal.Notifications.addEventListener("permissionChange", (permission: boolean) => {
+                console.log("[OneSignal] Permission changed:", permission);
+              });
+              console.log("[OneSignal] permissionChange listener attached successfully");
+            }
+          } catch (permErr) {
+            console.warn("[OneSignal] Failed to attach permission listener:", permErr);
+          }
 
-      // subscription change listener
-      try {
-        if (OneSignal.User && OneSignal.User.PushSubscription) {
-          OneSignal.User.PushSubscription.addEventListener("change", (event: any) => {
-            console.log("[OneSignal] Push subscription changed:", event);
-          });
-          console.log("[OneSignal] Push subscription change listener attached successfully");
-        }
-      } catch (subErr) {
-        console.warn("[OneSignal] Failed to attach subscription listener:", subErr);
-      }
+          // subscription change listener
+          try {
+            if (OneSignal.User && OneSignal.User.PushSubscription) {
+              OneSignal.User.PushSubscription.addEventListener("change", (event: any) => {
+                console.log("[OneSignal] Push subscription changed:", event);
+              });
+              console.log("[OneSignal] Push subscription listener attached successfully");
+            }
+          } catch (subErr) {
+            console.warn("[OneSignal] Failed to attach subscription listener:", subErr);
+          }
 
-      // ── STEP 10: Verify subscription state ──────────────────────
-      try {
-        if (OneSignal.User && OneSignal.User.PushSubscription) {
-          const optedIn = OneSignal.User.PushSubscription.optedIn;
-          console.log("[OneSignal] optedIn:", optedIn);
-          console.log("[OneSignal] pushToken:", OneSignal.User.PushSubscription.token || "none");
-          console.log("[OneSignal] id:", OneSignal.User.PushSubscription.id || "none");
-        }
-      } catch (stateErr) {
-        console.warn("[OneSignal] Failed to verify subscription state:", stateErr);
-      }
+          // ── STEP 10: Verify subscription state ──────────────────────
+          try {
+            if (OneSignal?.User?.PushSubscription) {
+              console.log(
+                "[OneSignal] optedIn:",
+                OneSignal.User.PushSubscription.optedIn
+              );
+              console.log("[OneSignal] pushToken:", OneSignal.User.PushSubscription.token || "none");
+              console.log("[OneSignal] id:", OneSignal.User.PushSubscription.id || "none");
+            }
+          } catch (stateErr) {
+            console.warn("[OneSignal] Failed to verify subscription state:", stateErr);
+          }
 
-      // ── STEP 9: Add final success log ───────────────────────────
-      console.log("[OneSignal] Init success");
+          console.log("[OneSignal] Init success");
+        })
+        .catch((err) => {
+          console.error("[OneSignal] Background init failed:", err);
+        });
 
     } catch (err: any) {
       initialized = false; // Reset state so a retry can be attempted later
