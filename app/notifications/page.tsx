@@ -259,42 +259,36 @@ export default function NotificationsPage() {
             <div className="w-8 h-8" />
           </div>
 
-          {/* Title */}
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-[26px] font-extrabold tracking-tight text-white leading-none">
-              Notifications
-            </h1>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#FFBA09] shadow-[0_0_6px_#FFBA09]" />
-              <span className="text-[12px] font-semibold text-white/90">
-                {unreadCount} unread
-              </span>
-              <span className="text-white/30 mx-1">·</span>
-              <RefreshCwIcon size={10} className="text-white/60 shrink-0" />
-              <span className="text-[10px] text-white/60 uppercase tracking-wider font-semibold">
-                Just synced
-              </span>
+          {/* Title + actions row */}
+          <div className="flex items-end justify-between">
+            <div>
+              <h1 className="text-[26px] font-extrabold tracking-tight text-white leading-none">
+                Notifications
+              </h1>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FFBA09] shadow-[0_0_5px_#FFBA09]" />
+                <span className="text-[11px] font-medium text-white/80">
+                  {unreadCount} unread
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pb-0.5">
+              <button
+                onClick={markAllRead}
+                className="text-[11px] font-semibold text-white/70 active:text-white transition-colors"
+              >
+                Mark read
+              </button>
+              <span className="w-px h-3 bg-white/20" />
+              <button
+                onClick={() => setShowClearModal(true)}
+                className="text-[11px] font-semibold text-white/70 active:text-white transition-colors"
+              >
+                Clear all
+              </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Action pills */}
-      <div className="relative z-30 px-5 flex items-center gap-3 -mt-5">
-        <button
-          onClick={markAllRead}
-          className="flex-1 h-9 rounded-full bg-white/95 backdrop-blur-md shadow-[0_6px_16px_rgba(1,31,123,0.10)] border border-white/70 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-        >
-          <CheckIcon size={12} className="text-[#011F7B]" strokeWidth={2.5} />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#011F7B]">Mark read</span>
-        </button>
-        <button
-          onClick={() => setShowClearModal(true)}
-          className="flex-1 h-9 rounded-full bg-white/95 backdrop-blur-md shadow-[0_6px_16px_rgba(1,31,123,0.10)] border border-white/70 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-        >
-          <TrashIcon size={12} className="text-[#F05252]" strokeWidth={2.5} />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#F05252]">Clear all</span>
-        </button>
       </div>
 
       {/* Main Content */}
