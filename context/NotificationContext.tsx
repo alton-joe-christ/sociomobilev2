@@ -246,7 +246,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           // Web/PWA
           const OS = (await import("react-onesignal")).default;
           if (!OS) return;
-          
+
           await OS.login(externalId);
           await OS.User.addTags({
             department: userData.department || "none",
@@ -254,9 +254,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             email: externalId
           });
           console.log("[OneSignal] Web identity sync complete.");
-          
-          if (OS.User?.PushSubscription) {
-             console.log("[OneSignal] Web Sub State - optedIn:", OS.User.PushSubscription.optedIn, "token:", OS.User.PushSubscription.token);
+
+          // Auto-recover: if browser permission was already granted on a previous
+          // visit but the SDK never finished opting the user in, do it now. This
+          // closes the gap where users see "permission granted" yet OneSignal
+          // dashboard shows them unsubscribed.
+          if (Notification.permission === "granted" && OS.User?.PushSubscription) {
+            const optedIn = OS.User.PushSubscription.optedIn;
+            console.log("[OneSignal] Web Sub State - optedIn:", optedIn, "token:", OS.User.PushSubscription.token);
+            if (!optedIn) {
+              try {
+                await OS.User.PushSubscription.optIn();
+                console.log("[OneSignal] Auto-opted in existing permission-granted user.");
+              } catch (optErr) {
+                console.warn("[OneSignal] Auto-optIn failed:", optErr);
+              }
+            }
           }
         }
       } catch (e) {
@@ -294,8 +307,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       if (Capacitor.isNativePlatform()) {
         // Native: use the Cordova OS instance stored in state
-        if (!oneSignal) return;
+        if (!oneSignal) {
+          console.warn("[OneSignal] Native SDK not ready — cannot request permission yet");
+          return;
+        }
         granted = await oneSignal.Notifications.requestPermission(true);
+        console.log("[OneSignal] Native permission result:", granted);
+        // CRITICAL: native side does not need optIn(); requestPermission()
+        // simultaneously registers the subscription.
       } else {
         // Web/PWA: use the global OneSignal object exposed by react-onesignal
         const OS = (await import("react-onesignal")).default;
@@ -307,7 +326,38 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         granted =
           OS.Notifications.permission === true ||
           Notification.permission === "granted";
-        if (granted) console.log("[OneSignal] Permission granted");
+        console.log("[OneSignal] Web permission state after request:", Notification.permission);
+
+        // CRITICAL FIX: in OneSignal Web SDK v16 the browser permission grant
+        // does NOT subscribe the user — you must explicitly opt-in. Without
+        // this call no push token is registered, no subscription ID is
+        // created, OneSignal dashboard shows 0 subscribers and notifications
+        // silently fail to deliver.
+        if (granted && OS.User?.PushSubscription) {
+          try {
+            await OS.User.PushSubscription.optIn();
+            console.log("[OneSignal] optIn() succeeded — push subscription active");
+          } catch (optErr) {
+            console.error("[OneSignal] optIn() failed:", optErr);
+          }
+        }
+
+        // Re-sync identity (login + tags) so the freshly-created subscription
+        // is immediately linked to the current user's external_id.
+        if (granted && userData?.email) {
+          try {
+            const externalId = userData.email.toLowerCase();
+            await OS.login(externalId);
+            await OS.User.addTags({
+              department: userData.department || "none",
+              campus: userData.campus || "none",
+              email: externalId,
+            });
+            console.log("[OneSignal] Identity re-synced after opt-in:", externalId);
+          } catch (loginErr) {
+            console.warn("[OneSignal] Identity re-sync failed:", loginErr);
+          }
+        }
       }
 
       const newStatus = granted ? "granted" : "denied";
@@ -322,7 +372,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error("[OneSignal] Push enable error", e);
     }
-  }, [oneSignal, updatePromptStatus]);
+  }, [oneSignal, updatePromptStatus, userData?.email, userData?.department, userData?.campus]);
 
   /* ── Fetch notifications ──────────────────────────────────────────────
    * IMPORTANT: `unreadCount` and `page` are intentionally NOT in the dep
